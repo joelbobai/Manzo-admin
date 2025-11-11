@@ -23,6 +23,12 @@ const NAVIGATION: NavigationItem[] = [
     icon: LayoutIcon,
   },
   {
+    label: "Sub-Admins",
+    slug: "users",
+    roles: ["main-admin"],
+    icon: UsersGroupIcon,
+  },
+  {
     label: "Bookings",
     slug: "bookings",
     roles: ["main-admin", "sub-admin"],
@@ -62,6 +68,9 @@ const NAVIGATION: NavigationItem[] = [
 ];
 
 function getHref(role: DashboardRole, slug?: string) {
+  if (role === "main-admin" && slug === "users") {
+    return "/dashboard/users";
+  }
   return `/${role}/dashboard${slug ? `/${slug}` : ""}`;
 }
 
@@ -228,6 +237,25 @@ function TagIcon({ className }: IconProps) {
     >
       <path d="M4 7.5V4h3.5L20 16.5l-3.5 3.5L4 7.5z" />
       <circle cx="7.5" cy="7.5" r="1.2" />
+    </svg>
+  );
+}
+
+function UsersGroupIcon({ className }: IconProps) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
     </svg>
   );
 }
