@@ -1,5 +1,5 @@
 "use client";
-
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ComponentType } from "react";
@@ -71,10 +71,7 @@ export default function DashboardSidebar({ role }: { role: DashboardRole }) {
   return (
     <aside className="flex h-full w-64 flex-col border-r border-slate-100 bg-white px-6 py-8 shadow-sm">
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-100 text-amber-500">
-          <PlaneBadgeIcon className="h-5 w-5" />
-        </div>
-        <span className="text-xl font-semibold text-slate-900">Skytix</span>
+       <Image src="/ManzoNavLogo.png" alt="Manzo" width={150} height={150} />
       </div>
 
       <nav className="mt-10 flex flex-col gap-2">
