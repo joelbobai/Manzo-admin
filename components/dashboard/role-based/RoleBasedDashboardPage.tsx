@@ -1,229 +1,223 @@
+import type { JSX } from "react";
+
 import DashboardShell, {
   DashboardRole,
 } from "@/components/dashboard/role-based/DashboardShell";
 
-const dashboardCopy: Record<DashboardRole, { title: string; subtitle: string }> = {
-  "main-admin": {
-    title: "Executive overview",
-    subtitle:
-      "Monitor platform-wide health, approvals and the requests that need your attention.",
-  },
-  "sub-admin": {
-    title: "Daily operations",
-    subtitle:
-      "Review your assignments and share updates with the main admin when you are done.",
-  },
+type DashboardCard = {
+  title: string;
+  value: string;
+  icon: () => JSX.Element;
+  iconWrapperClass: string;
+  badge: {
+    direction: "up" | "down";
+    label: string;
+    containerClass: string;
+    iconClass: string;
+  };
 };
 
-const metrics: Record<DashboardRole, { label: string; value: string; helper: string }[]> = {
-  "main-admin": [
-    { label: "Active users", value: "1,248", helper: "+5.3% vs last week" },
-    { label: "Pending approvals", value: "18", helper: "2 fewer than yesterday" },
-    { label: "System alerts", value: "2", helper: "All resolved within SLA" },
-  ],
-  "sub-admin": [
-    { label: "Tasks completed", value: "68%", helper: "Finish 2 more for 80%" },
-    { label: "Open requests", value: "12", helper: "4 waiting for review" },
-    { label: "Feedback score", value: "4.8", helper: "Great work this week" },
-  ],
-};
-
-const focusAreas = [
+const dashboardCards: DashboardCard[] = [
   {
-    title: "Today's tasks",
-    details: "Approve four pending listings and review two flagged submissions.",
-    status: "In progress",
+    title: "Completed Flights",
+    value: "125",
+    icon: CompletedFlightsIcon,
+    iconWrapperClass: "bg-[#EBDCA8]",
+    badge: {
+      direction: "up",
+      label: "1.25%",
+      containerClass: "bg-[#F6EDDA] text-[#1C1C1C]",
+      iconClass: "text-[#C1901D]",
+    },
   },
   {
-    title: "Team collaboration",
-    details: "Share weekly update with the main admin team by 5 PM.",
-    status: "Planned",
-  },
-];
-
-const notifications = [
-  {
-    title: "Reminder",
-    message: "Upload compliance documents for August reporting.",
-    time: "Due in 2 days",
-  },
-  {
-    title: "Task assigned",
-    message: "Review partner onboarding checklist from Alex.",
-    time: "Assigned 1 hour ago",
-  },
-];
-
-const recentActivities = [
-  {
-    title: "New sub-admin request",
-    description: "Sarah Lee requested elevated permissions.",
-    time: "2 hours ago",
+    title: "Active Flights",
+    value: "80",
+    icon: ActiveFlightsIcon,
+    iconWrapperClass: "bg-[#EBDCA8]",
+    badge: {
+      direction: "up",
+      label: "3.68%",
+      containerClass: "bg-[#F6EDDA] text-[#1C1C1C]",
+      iconClass: "text-[#C1901D]",
+    },
   },
   {
-    title: "Audit log exported",
-    description: "Weekly security audit log generated.",
-    time: "Yesterday",
+    title: "Canceled Flights",
+    value: "25",
+    icon: CanceledFlightsIcon,
+    iconWrapperClass: "bg-[#EBDCA8]",
+    badge: {
+      direction: "down",
+      label: "1.45%",
+      containerClass: "bg-[#1F1F1F] text-white",
+      iconClass: "text-white",
+    },
   },
   {
-    title: "Password reset completed",
-    description: "Michael Chen reset credentials successfully.",
-    time: "2 days ago",
+    title: "Total Revenue",
+    value: "$15,000",
+    icon: RevenueIcon,
+    iconWrapperClass: "bg-[#EBDCA8]",
+    badge: {
+      direction: "up",
+      label: "5.94%",
+      containerClass: "bg-[#F6EDDA] text-[#1C1C1C]",
+      iconClass: "text-[#C1901D]",
+    },
   },
 ];
-
-const quickActions: Record<DashboardRole, { label: string; variant: "primary" | "outline" }[]> = {
-  "main-admin": [
-    { label: "Invite new sub-admin", variant: "primary" },
-    { label: "Review access logs", variant: "outline" },
-  ],
-  "sub-admin": [
-    { label: "Submit daily report", variant: "primary" },
-    { label: "Sync with teammates", variant: "outline" },
-  ],
-};
 
 export default function RoleBasedDashboardPage({ role }: { role: DashboardRole }) {
-  const hero = dashboardCopy[role];
-
   return (
     <DashboardShell role={role}>
-      <section className="space-y-2">
-        <h2 className="text-2xl font-semibold text-slate-900">{hero.title}</h2>
-        <p className="max-w-3xl text-sm text-slate-500">{hero.subtitle}</p>
-      </section>
+      <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+        {dashboardCards.map((card) => (
+          <article
+            key={card.title}
+            className="flex h-full flex-col justify-between rounded-[24px] border border-[#F0EDE6] bg-white p-6 shadow-[0px_16px_40px_rgba(15,23,42,0.08)]"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-[#6E6E6E]">{card.title}</p>
+                <p className="text-4xl font-semibold text-[#1A1A1A]">{card.value}</p>
+              </div>
+              <div
+                className={`flex h-16 w-16 items-center justify-center rounded-full ${card.iconWrapperClass}`}
+              >
+                <card.icon />
+              </div>
+            </div>
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {metrics[role].map((metric) => (
-          <div key={metric.label} className="rounded-xl bg-white p-6 shadow-sm">
-            <p className="text-xs uppercase tracking-wide text-slate-500">
-              {metric.label}
-            </p>
-            <p className="mt-2 text-2xl font-semibold text-slate-900">
-              {metric.value}
-            </p>
-            <p className="mt-1 text-xs text-emerald-600">{metric.helper}</p>
-          </div>
+            <div
+              className={`mt-8 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold ${card.badge.containerClass}`}
+            >
+              <TrendArrow direction={card.badge.direction} className={card.badge.iconClass} />
+              <span>{card.badge.label}</span>
+            </div>
+          </article>
         ))}
-      </section>
-
-      <section className="grid gap-6 lg:grid-cols-5">
-        <div className="space-y-6 lg:col-span-3">
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h3 className="text-lg font-semibold text-slate-900">
-              {role === "main-admin" ? "Platform overview" : "Focus for today"}
-            </h3>
-            <p className="mt-2 text-sm text-slate-500">
-              {role === "main-admin"
-                ? "Monitor overall platform activity, approvals and access requests. These insights help you act quickly."
-                : "Keep your assignments on track and notify the main admin once completed."}
-            </p>
-            {role === "main-admin" ? (
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                <div className="rounded-lg border border-slate-200 p-4">
-                  <p className="text-sm font-medium text-slate-700">
-                    Infrastructure status
-                  </p>
-                  <p className="mt-2 text-sm text-emerald-600">
-                    All systems operational
-                  </p>
-                </div>
-                <div className="rounded-lg border border-slate-200 p-4">
-                  <p className="text-sm font-medium text-slate-700">
-                    Upcoming maintenance
-                  </p>
-                  <p className="mt-2 text-sm text-slate-500">
-                    Scheduled for July 28, 11:00 PM UTC
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="mt-4 space-y-4">
-                {focusAreas.map((item) => (
-                  <div
-                    key={item.title}
-                    className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4"
-                  >
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-semibold text-slate-800">
-                        {item.title}
-                      </p>
-                      <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-blue-600">
-                        {item.status}
-                      </span>
-                    </div>
-                    <p className="mt-2 text-xs text-slate-600">{item.details}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {role === "sub-admin" ? (
-            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h3 className="text-lg font-semibold text-slate-900">
-                Progress overview
-              </h3>
-              <div className="mt-6 grid gap-4 sm:grid-cols-3">
-                {metrics["sub-admin"].map((metric) => (
-                  <div
-                    key={`${metric.label}-progress`}
-                    className="rounded-2xl bg-blue-500/10 p-4 text-center"
-                  >
-                    <p className="text-xl font-semibold text-blue-600">
-                      {metric.value}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-500">{metric.label}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
-        </div>
-
-        <div className="space-y-4 lg:col-span-2">
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h3 className="text-lg font-semibold text-slate-900">
-              {role === "main-admin" ? "Recent activity" : "Notifications"}
-            </h3>
-            <ul className="mt-4 space-y-4">
-              {(role === "main-admin" ? recentActivities : notifications).map(
-                (item) => (
-                  <li
-                    key={item.title}
-                    className="rounded-lg border border-slate-200 p-4"
-                  >
-                    <p className="text-sm font-medium text-slate-800">
-                      {item.title}
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      {"message" in item ? item.message : item.description}
-                    </p>
-                    <p className="mt-2 text-xs text-slate-400">{item.time}</p>
-                  </li>
-                ),
-              )}
-            </ul>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h3 className="text-lg font-semibold text-slate-900">Quick actions</h3>
-            <div className="mt-4 space-y-3">
-              {quickActions[role].map((action) => (
-                <button
-                  key={action.label}
-                  className={
-                    action.variant === "primary"
-                      ? "w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
-                      : "w-full rounded-lg border border-indigo-200 px-4 py-2 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-50"
-                  }
-                >
-                  {action.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
       </section>
     </DashboardShell>
   );
 }
+
+function TrendArrow({
+  direction,
+  className,
+}: {
+  direction: "up" | "down";
+  className?: string;
+}) {
+  if (direction === "down") {
+    return (
+      <svg
+        className={`h-4 w-4 ${className ?? ""}`}
+        viewBox="0 0 16 16"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M4.5 5.5L11 12M11 8.5V12H7.5"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+
+  return (
+    <svg
+      className={`h-4 w-4 ${className ?? ""}`}
+      viewBox="0 0 16 16"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M4.5 10.5L11 4M11 7.5V4H7.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function CompletedFlightsIcon() {
+  return (
+    <svg
+      className="h-6 w-6 text-[#1A1A1A]"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M5 12.5L9 16.5L19 6.5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ActiveFlightsIcon() {
+  return (
+    <svg
+      className="h-6 w-6 text-[#1A1A1A]"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M3 12L21 5L17 19L11.5 13.5L7 18L6 12L3 12Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function CanceledFlightsIcon() {
+  return (
+    <svg
+      className="h-6 w-6 text-[#1A1A1A]"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M7 7L17 17M17 7L7 17"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function RevenueIcon() {
+  return (
+    <svg
+      className="h-6 w-6 text-[#1A1A1A]"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M12 4V20M8 8.5C8 6.84315 9.34315 5.5 11 5.5H13C14.6569 5.5 16 6.84315 16 8.5C16 10.1569 14.6569 11.5 13 11.5H11C9.34315 11.5 8 12.8431 8 14.5C8 16.1569 9.34315 17.5 11 17.5H13C14.6569 17.5 16 16.1569 16 14.5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
