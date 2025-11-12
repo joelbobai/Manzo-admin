@@ -21,41 +21,35 @@ function RetrieveTicketScreenContent() {
   const orderIdOrPnr = useRetrieveStore((state) => state.orderIdOrPnr);
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-12 pt-10">
-      <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 sm:px-6">
-        <header className="space-y-2">
-          <h1 className="text-3xl font-semibold text-slate-900">Retrieve Ticket</h1>
-          <p className="text-sm text-slate-500">
-            Load a customer booking to review fares, traveler details, and ticketing deadlines.
-          </p>
-        </header>
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+      <header className="space-y-2">
+        <h1 className="text-3xl font-semibold text-slate-900">Retrieve Ticket</h1>
+        <p className="text-sm text-slate-500">
+          Load a customer booking to review fares, traveler details, and ticketing deadlines.
+        </p>
+      </header>
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-            <div className="max-w-2xl space-y-2">
-              <h2 className="text-xl font-semibold text-slate-900">Booking tools</h2>
-              <p className="text-sm text-slate-500">
-                Retrieve existing flight orders or simulate the issuing flow. All actions are instant and stay within this workspace.
-              </p>
-              {orderIdOrPnr ? (
-                <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-600">
-                  Last reference: {orderIdOrPnr}
-                </Badge>
-              ) : null}
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <RetrieveTicketDialog />
-              <IssueTicketDialog />
-            </div>
+      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="max-w-2xl space-y-2">
+            <h2 className="text-xl font-semibold text-slate-900">Booking tools</h2>
+            <p className="text-sm text-slate-500">
+              Retrieve existing flight orders or simulate the issuing flow. All actions are instant and stay within this workspace.
+            </p>
+            {orderIdOrPnr ? (
+              <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-600">
+                Last reference: {orderIdOrPnr}
+              </Badge>
+            ) : null}
           </div>
-        </section>
+          <div className="flex flex-wrap gap-3">
+            <RetrieveTicketDialog />
+            <IssueTicketDialog />
+          </div>
+        </div>
+      </section>
 
-        {result ? (
-          <RetrieveResult order={result} />
-        ) : (
-          <EmptyState loading={loading} />
-        )}
-      </main>
+      {result ? <RetrieveResult order={result} /> : <EmptyState loading={loading} />}
     </div>
   );
 }
