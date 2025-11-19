@@ -35,7 +35,7 @@ export default function SubAdminSignupForm() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(`${BASE_URL}/auth/subadmin/signup`, {
+      const response = await fetch(`${BASE_URL}/api/v1/user/subadmin/signup`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -116,7 +116,7 @@ const useAuthStoreInternal = create<AuthStoreState>((set, get) => {
       return false;
     }
 
-    const response = await fetch(`${BASE_URL}/auth/refresh`, {
+    const response = await fetch(`${BASE_URL}/api/v1/user/refresh`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -174,7 +174,7 @@ const useAuthStoreInternal = create<AuthStoreState>((set, get) => {
       set({ hydrated: true });
     },
     login: async ({ email, password, remember = true }: LoginInput) => {
-      const response = await fetch(`${BASE_URL}/auth/login`, {
+      const response = await fetch(`${BASE_URL}/api/v1/user/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -210,7 +210,7 @@ const useAuthStoreInternal = create<AuthStoreState>((set, get) => {
       const session = get().session;
       if (session?.refreshToken) {
         try {
-          await fetch(`${BASE_URL}/auth/logout`, {
+          await fetch(`${BASE_URL}/api/v1/user/logout`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
