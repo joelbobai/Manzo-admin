@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { useAuth } from "@/stores/auth-context";
+import { useAuth } from "@/stores/auth-store";
 
 const NAVIGATION = [
   { label: "Dashboard", href: "/dashboard" },

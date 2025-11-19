@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
-import { useAuth } from "@/stores/auth-context";
+import { useAuth } from "@/stores/auth-store";
 import { getResponseErrorMessage, parseJSON } from "@/lib/http";
 
 export type BookingStatus = "active" | "completed" | "reserved" | "canceled";

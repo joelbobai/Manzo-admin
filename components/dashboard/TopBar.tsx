@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/stores/auth-context";
+import { useAuth } from "@/stores/auth-store";
 
 export default function TopBar() {
   const router = useRouter();

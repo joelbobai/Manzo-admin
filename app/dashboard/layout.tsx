@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 import Sidebar from "@/components/dashboard/Sidebar";
 import TopBar from "@/components/dashboard/TopBar";
-import { useAuth } from "@/stores/auth-context";
+import { useAuth } from "@/stores/auth-store";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
