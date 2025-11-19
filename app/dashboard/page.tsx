@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 
 import { Badge } from "@/components/ui/badge";
-import { useAuth } from "@/stores/auth-context";
+import { useAuth } from "@/stores/auth-store";
 
 export default function DashboardHomePage() {
   const { user } = useAuth();

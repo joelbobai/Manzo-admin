@@ -1,14 +1,8 @@
 "use client";
 
-import {
-  createContext,
-  startTransition,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { useEffect } from "react";
+import { create } from "zustand";
+import { useShallow } from "zustand/react/shallow";
 
 import { BASE_URL } from "@/lib/constants";
 import { getResponseErrorMessage, parseJSON } from "@/lib/http";
@@ -30,21 +24,20 @@ export type AuthSession = {
 
 type PersistTarget = "local" | "session";
 
-type AuthContextValue = {
-  user?: AuthUser;
-  accessToken?: string;
-  refreshToken?: string;
-  hydrated: boolean;
-  isAuthenticated: boolean;
-  login: (input: { email: string; password: string; remember?: boolean }) => Promise<void>;
-  logout: () => Promise<void>;
-  authFetch: (path: string, init?: RequestInit) => Promise<Response>;
-};
+type LoginInput = { email: string; password: string; remember?: boolean };
 
 const LOCAL_STORAGE_KEY = "manzo-admin-auth";
 const SESSION_STORAGE_KEY = "manzo-admin-auth-session";
 
-const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+type AuthStoreState = {
+  session?: AuthSession;
+  persist: PersistTarget;
+  hydrated: boolean;
+  hydrate: () => void;
+  login: (input: LoginInput) => Promise<void>;
+  logout: () => Promise<void>;
+  authFetch: (path: string, init?: RequestInit) => Promise<Response>;
+};
 
 type StoredSession = { session: AuthSession; persist: PersistTarget };
 
@@ -106,71 +99,19 @@ function clearPersistedSession() {
   window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
 }
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [session, setSession] = useState<AuthSession | undefined>(undefined);
-  const [persist, setPersist] = useState<PersistTarget>("local");
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    const stored = readStoredSession();
-    startTransition(() => {
-      if (stored) {
-        setSession(stored.session);
-        setPersist(stored.persist);
-      }
-      setHydrated(true);
-    });
-  }, []);
-
-  const applySession = useCallback((nextSession: AuthSession, target: PersistTarget) => {
-    setSession(nextSession);
-    setPersist(target);
+const useAuthStoreInternal = create<AuthStoreState>((set, get) => {
+  const applySession = (nextSession: AuthSession, target: PersistTarget) => {
+    set({ session: nextSession, persist: target });
     persistSession(nextSession, target);
-  }, []);
+  };
 
-  const clearSession = useCallback(() => {
-    setSession(undefined);
+  const clearSession = () => {
+    set({ session: undefined });
     clearPersistedSession();
-  }, []);
+  };
 
-  const login = useCallback(
-    async ({ email, password, remember = true }: { email: string; password: string; remember?: boolean }) => {
-      const response = await fetch(`${BASE_URL}/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (!response.ok) {
-        throw new Error(await getResponseErrorMessage(response));
-      }
-
-      type LoginResponse = {
-        accessToken: string;
-        refreshToken: string;
-        user: AuthUser;
-      };
-      const payload = await parseJSON<LoginResponse>(response);
-
-      if (!payload.accessToken || !payload.refreshToken || !payload.user) {
-        throw new Error("Unexpected response from the server.");
-      }
-
-      applySession(
-        {
-          user: payload.user,
-          accessToken: payload.accessToken,
-          refreshToken: payload.refreshToken,
-        },
-        remember ? "local" : "session",
-      );
-    },
-    [applySession],
-  );
-
-  const refreshTokens = useCallback(async () => {
+  const refreshTokens = async () => {
+    const { session, persist } = get();
     if (!session?.refreshToken) {
       return false;
     }
@@ -213,28 +154,78 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearSession();
       return false;
     }
-  }, [applySession, clearSession, persist, session]);
+  };
 
-  const logout = useCallback(async () => {
-    if (session?.refreshToken) {
-      try {
-        await fetch(`${BASE_URL}/auth/logout`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ refreshToken: session.refreshToken }),
-        });
-      } catch {
-        // Ignore network failures during logout.
+  return {
+    session: undefined,
+    persist: "local",
+    hydrated: false,
+    hydrate: () => {
+      if (get().hydrated) {
+        return;
       }
-    }
 
-    clearSession();
-  }, [clearSession, session]);
+      const stored = readStoredSession();
+      if (stored) {
+        set({ session: stored.session, persist: stored.persist, hydrated: true });
+        return;
+      }
 
-  const authFetch = useCallback(
-    async (path: string, init: RequestInit = {}) => {
+      set({ hydrated: true });
+    },
+    login: async ({ email, password, remember = true }: LoginInput) => {
+      const response = await fetch(`${BASE_URL}/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!response.ok) {
+        throw new Error(await getResponseErrorMessage(response));
+      }
+
+      type LoginResponse = {
+        accessToken: string;
+        refreshToken: string;
+        user: AuthUser;
+      };
+
+      const payload = await parseJSON<LoginResponse>(response);
+      if (!payload.accessToken || !payload.refreshToken || !payload.user) {
+        throw new Error("Unexpected response from the server.");
+      }
+
+      applySession(
+        {
+          user: payload.user,
+          accessToken: payload.accessToken,
+          refreshToken: payload.refreshToken,
+        },
+        remember ? "local" : "session",
+      );
+    },
+    logout: async () => {
+      const session = get().session;
+      if (session?.refreshToken) {
+        try {
+          await fetch(`${BASE_URL}/auth/logout`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ refreshToken: session.refreshToken }),
+          });
+        } catch {
+          // Ignore network failures during logout.
+        }
+      }
+
+      clearSession();
+    },
+    authFetch: async (path: string, init: RequestInit = {}) => {
+      const session = get().session;
       if (!session?.accessToken) {
         throw new Error("You need to be signed in to continue.");
       }
@@ -254,51 +245,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
 
       let response = await performRequest(session.accessToken);
-
       if (response.status !== 401) {
         return response;
       }
 
       const refreshed = await refreshTokens();
       if (!refreshed) {
-        await logout();
+        await get().logout();
         throw new Error("Your session expired. Please sign in again.");
       }
 
       response = await performRequest(refreshed);
-
       if (response.status === 401) {
-        await logout();
+        await get().logout();
         throw new Error("Your session expired. Please sign in again.");
       }
 
       return response;
     },
-    [logout, refreshTokens, session],
-  );
-
-  const value = useMemo<AuthContextValue>(
-    () => ({
-      user: session?.user,
-      accessToken: session?.accessToken,
-      refreshToken: session?.refreshToken,
-      hydrated,
-      isAuthenticated: Boolean(session?.accessToken),
-      login,
-      logout,
-      authFetch,
-    }),
-    [authFetch, hydrated, login, logout, session?.accessToken, session?.refreshToken, session?.user],
-  );
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
+  };
+});
 
 export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
+  const { hydrate, session, hydrated, login, logout, authFetch } = useAuthStoreInternal(
+    useShallow((state) => ({
+      hydrate: state.hydrate,
+      session: state.session,
+      hydrated: state.hydrated,
+      login: state.login,
+      logout: state.logout,
+      authFetch: state.authFetch,
+    })),
+  );
 
-  return context;
+  useEffect(() => {
+    hydrate();
+  }, [hydrate]);
+
+  return {
+    user: session?.user,
+    accessToken: session?.accessToken,
+    refreshToken: session?.refreshToken,
+    hydrated,
+    isAuthenticated: Boolean(session?.accessToken),
+    login,
+    logout,
+    authFetch,
+  };
 }
+
+export type { AuthStoreState };
