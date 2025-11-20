@@ -1,61 +1,70 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { getResponseErrorMessage, parseJSON } from "@/lib/http";
+import { useAuth } from "@/stores/auth-store";
+
+type ApiSubAdmin = {
+  id?: string;
+  _id?: string;
+  fullName?: string;
+  name?: string;
+  email?: string;
+  isActive?: boolean;
+  status?: "active" | "inactive";
+  canIssueTickets?: boolean;
+  canReserveTickets?: boolean;
+  canRetrieveTickets?: boolean;
+  reservedTickets?: string[];
+};
 
 export type SubAdmin = {
   id: string;
   name: string;
   email: string;
-  status: "active" | "inactive";
+  isActive: boolean;
   canIssueTickets: boolean;
   canReserveTickets: boolean;
   canRetrieveTickets: boolean;
   reservedTickets: string[];
 };
 
-type PermissionKey = "status" | "canIssueTickets" | "canReserveTickets" | "canRetrieveTickets";
+type PermissionKey = "canIssueTickets" | "canReserveTickets" | "canRetrieveTickets";
 
-const DEFAULT_SUB_ADMINS: SubAdmin[] = [
-  {
-    id: "SA-1023",
-    name: "Amina Bello",
-    email: "amina.bello@manzoair.com",
-    status: "active",
-    canIssueTickets: true,
-    canReserveTickets: true,
-    canRetrieveTickets: true,
-    reservedTickets: ["TCK-2201", "TCK-2244", "TCK-2250"],
-  },
-  {
-    id: "SA-1148",
-    name: "Bode Martins",
-    email: "bode.martins@manzoair.com",
-    status: "active",
-    canIssueTickets: false,
-    canReserveTickets: true,
-    canRetrieveTickets: true,
-    reservedTickets: ["TCK-2178"],
-  },
-  {
-    id: "SA-1310",
-    name: "Chidera Okafor",
-    email: "chidera.okafor@manzoair.com",
-    status: "inactive",
-    canIssueTickets: false,
-    canReserveTickets: false,
-    canRetrieveTickets: false,
-    reservedTickets: [],
-  },
-];
+function normalizeSubAdmin(payload: ApiSubAdmin): SubAdmin | null {
+  const id = payload.id ?? payload._id;
+  if (!id) {
+    return null;
+  }
+
+  return {
+    id,
+    name: payload.fullName ?? payload.name ?? "Unknown user",
+    email: payload.email ?? "",
+    isActive: payload.isActive ?? payload.status !== "inactive",
+    canIssueTickets: payload.canIssueTickets ?? false,
+    canReserveTickets: payload.canReserveTickets ?? false,
+    canRetrieveTickets: payload.canRetrieveTickets ?? false,
+    reservedTickets: Array.isArray(payload.reservedTickets)
+      ? payload.reservedTickets.map(String)
+      : [],
+  };
+}
 
 export default function SubAdminsPage() {
-  const [subAdmins, setSubAdmins] = useState<SubAdmin[]>(DEFAULT_SUB_ADMINS);
+  const { authFetch, hydrated } = useAuth();
+  const [subAdmins, setSubAdmins] = useState<SubAdmin[]>([]);
   const [searchId, setSearchId] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activeSearch, setActiveSearch] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [updating, setUpdating] = useState<Record<string, boolean>>({});
 
   const searchResult = useMemo(() => {
     if (!searchId) return null;
@@ -63,17 +72,95 @@ export default function SubAdminsPage() {
     return match ?? null;
   }, [searchId, subAdmins]);
 
-  const updatePermission = (id: string, key: PermissionKey, value: SubAdmin[PermissionKey]) => {
-    setSubAdmins((previous) =>
-      previous.map((admin) =>
-        admin.id === id
-          ? {
-              ...admin,
-              [key]: value,
-            }
-          : admin,
-      ),
-    );
+  const applyRemoteSubAdmin = (payload: ApiSubAdmin, fallbackId?: string) => {
+    const normalized = normalizeSubAdmin({ ...payload, id: payload.id ?? payload._id ?? fallbackId });
+    if (!normalized) return;
+
+    setSubAdmins((previous) => {
+      const exists = previous.some((admin) => admin.id === normalized.id);
+      if (!exists) {
+        return [...previous, normalized];
+      }
+
+      return previous.map((admin) => (admin.id === normalized.id ? normalized : admin));
+    });
+  };
+
+  const fetchSubAdmins = useCallback(async () => {
+    if (!hydrated) return;
+    setLoading(true);
+    setError(null);
+
+    try {
+      const query = activeSearch ? `?search=${encodeURIComponent(activeSearch)}` : "";
+      const response = await authFetch(`/api/v1/user/subadmins${query}`, { method: "GET" });
+      if (!response.ok) {
+        throw new Error(await getResponseErrorMessage(response));
+      }
+
+      const payload = await parseJSON<ApiSubAdmin[]>(response);
+      const normalized = Array.isArray(payload)
+        ? payload.map(normalizeSubAdmin).filter((item): item is SubAdmin => Boolean(item))
+        : [];
+      setSubAdmins(normalized);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to load sub-admins.";
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  }, [activeSearch, authFetch, hydrated]);
+
+  useEffect(() => {
+    fetchSubAdmins();
+  }, [fetchSubAdmins]);
+
+  const updateStatus = async (adminId: string, isActive: boolean) => {
+    setUpdating((previous) => ({ ...previous, [adminId]: true }));
+    setError(null);
+
+    try {
+      const response = await authFetch(`/api/v1/user/subadmins/${adminId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ isActive }),
+      });
+
+      if (!response.ok) {
+        throw new Error(await getResponseErrorMessage(response));
+      }
+
+      const payload = await parseJSON<ApiSubAdmin>(response);
+      applyRemoteSubAdmin(payload, adminId);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to update the sub-admin.";
+      setError(message);
+    } finally {
+      setUpdating((previous) => ({ ...previous, [adminId]: false }));
+    }
+  };
+
+  const updatePermissions = async (adminId: string, changes: Partial<Record<PermissionKey, boolean>>) => {
+    setUpdating((previous) => ({ ...previous, [adminId]: true }));
+    setError(null);
+
+    try {
+      const response = await authFetch(`/api/v1/user/subadmins/${adminId}/permissions`, {
+        method: "PATCH",
+        body: JSON.stringify(changes),
+      });
+
+      if (!response.ok) {
+        throw new Error(await getResponseErrorMessage(response));
+      }
+
+      const payload = await parseJSON<ApiSubAdmin>(response);
+      applyRemoteSubAdmin(payload, adminId);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to update permissions.";
+      setError(message);
+    } finally {
+      setUpdating((previous) => ({ ...previous, [adminId]: false }));
+    }
   };
 
   return (
@@ -85,6 +172,29 @@ export default function SubAdminsPage() {
           Deactivate accounts or toggle ticket permissions for every sub-admin. Search by ID to review the tickets
           they have reserved.
         </p>
+        {error ? <p className="mt-3 text-sm font-medium text-rose-600">{error}</p> : null}
+        <form
+          className="mt-4 flex flex-col gap-3 md:flex-row md:items-center"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setActiveSearch(searchTerm.trim());
+          }}
+        >
+          <div className="flex flex-1 flex-wrap gap-3 md:flex-nowrap">
+            <Input
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search by name or email"
+              className="min-w-0 flex-1"
+            />
+            <Button type="submit" size="sm" disabled={loading}>
+              {loading ? "Searching…" : "Search"}
+            </Button>
+          </div>
+          <Button type="button" variant="outline" size="sm" onClick={fetchSubAdmins} disabled={loading}>
+            {loading ? "Refreshing…" : "Refresh list"}
+          </Button>
+        </form>
       </header>
 
       <section className="rounded-3xl bg-white p-6 shadow-sm">
@@ -101,50 +211,73 @@ export default function SubAdminsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-              {subAdmins.map((admin) => (
-                <tr key={admin.id} className="align-middle">
-                  <td className="py-3 pr-4">
-                    <div className="space-y-0.5">
-                      <p className="font-semibold text-slate-900">{admin.name}</p>
-                      <p className="text-xs text-slate-500">{admin.email}</p>
-                      <p className="text-xs font-medium text-slate-500">ID: {admin.id}</p>
-                    </div>
-                  </td>
-                  <td className="py-3 pr-4">
-                    <Badge variant={admin.status === "active" ? "default" : "secondary"}>
-                      {admin.status === "active" ? "Active" : "Inactive"}
-                    </Badge>
-                  </td>
-                  <td className="py-3 pr-4">
-                    <Switch
-                      checked={admin.status === "inactive"}
-                      onCheckedChange={(checked) => updatePermission(admin.id, "status", checked ? "inactive" : "active")}
-                      aria-label={`Deactivate ${admin.name}`}
-                    />
-                  </td>
-                  <td className="py-3 pr-4">
-                    <Switch
-                      checked={admin.canIssueTickets}
-                      onCheckedChange={(checked) => updatePermission(admin.id, "canIssueTickets", checked)}
-                      aria-label={`Allow ${admin.name} to issue tickets`}
-                    />
-                  </td>
-                  <td className="py-3 pr-4">
-                    <Switch
-                      checked={admin.canReserveTickets}
-                      onCheckedChange={(checked) => updatePermission(admin.id, "canReserveTickets", checked)}
-                      aria-label={`Allow ${admin.name} to reserve tickets`}
-                    />
-                  </td>
-                  <td className="py-3 pr-4">
-                    <Switch
-                      checked={admin.canRetrieveTickets}
-                      onCheckedChange={(checked) => updatePermission(admin.id, "canRetrieveTickets", checked)}
-                      aria-label={`Allow ${admin.name} to retrieve tickets`}
-                    />
+              {loading ? (
+                <tr>
+                  <td className="py-6 text-center text-sm text-slate-500" colSpan={6}>
+                    Loading sub-admins…
                   </td>
                 </tr>
-              ))}
+              ) : null}
+
+              {!loading && subAdmins.length === 0 ? (
+                <tr>
+                  <td className="py-6 text-center text-sm text-slate-500" colSpan={6}>
+                    No sub-admins found. Try refreshing the list.
+                  </td>
+                </tr>
+              ) : null}
+
+              {subAdmins.map((admin) => {
+                const isBusy = updating[admin.id] || loading;
+                return (
+                  <tr key={admin.id} className="align-middle">
+                    <td className="py-3 pr-4">
+                      <div className="space-y-0.5">
+                        <p className="font-semibold text-slate-900">{admin.name}</p>
+                        <p className="text-xs text-slate-500">{admin.email}</p>
+                        <p className="text-xs font-medium text-slate-500">ID: {admin.id}</p>
+                      </div>
+                    </td>
+                    <td className="py-3 pr-4">
+                      <Badge variant={admin.isActive ? "default" : "secondary"}>
+                        {admin.isActive ? "Active" : "Inactive"}
+                      </Badge>
+                    </td>
+                    <td className="py-3 pr-4">
+                      <Switch
+                        checked={!admin.isActive}
+                        disabled={isBusy}
+                        onCheckedChange={(checked) => updateStatus(admin.id, !checked)}
+                        aria-label={`Deactivate ${admin.name}`}
+                      />
+                    </td>
+                    <td className="py-3 pr-4">
+                      <Switch
+                        checked={admin.canIssueTickets}
+                        disabled={isBusy}
+                        onCheckedChange={(checked) => updatePermissions(admin.id, { canIssueTickets: checked })}
+                        aria-label={`Allow ${admin.name} to issue tickets`}
+                      />
+                    </td>
+                    <td className="py-3 pr-4">
+                      <Switch
+                        checked={admin.canReserveTickets}
+                        disabled={isBusy}
+                        onCheckedChange={(checked) => updatePermissions(admin.id, { canReserveTickets: checked })}
+                        aria-label={`Allow ${admin.name} to reserve tickets`}
+                      />
+                    </td>
+                    <td className="py-3 pr-4">
+                      <Switch
+                        checked={admin.canRetrieveTickets}
+                        disabled={isBusy}
+                        onCheckedChange={(checked) => updatePermissions(admin.id, { canRetrieveTickets: checked })}
+                        aria-label={`Allow ${admin.name} to retrieve tickets`}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -171,7 +304,7 @@ export default function SubAdminsPage() {
 
         <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-700">
           {searchId === "" && <p className="text-slate-500">Enter a sub-admin ID to see their reserved tickets.</p>}
-          {searchId !== "" && !searchResult && <p>No sub-admin found with ID "{searchId}".</p>}
+          {searchId !== "" && !searchResult && <p>No sub-admin found with ID &quot;{searchId}&quot;.</p>}
           {searchResult && (
             <div className="space-y-2">
               <p className="font-semibold text-slate-900">Reserved tickets for {searchResult.name}</p>
