@@ -9,6 +9,7 @@ import { useAuth } from "@/stores/auth-store";
 const NAVIGATION = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "Bookings", href: "/dashboard/bookings" },
+  { label: "Users", href: "/dashboard/users" },
   { label: "Settings", href: "/dashboard/settings" },
 ];
 
