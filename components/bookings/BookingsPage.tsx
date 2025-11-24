@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { useAuth } from "@/stores/auth-store";
 import { getResponseErrorMessage, parseJSON } from "@/lib/http";
+import { type IssueTicketResponse } from "./IssuedTicketPage";
 
 export type BookingStatus = "active" | "completed" | "reserved" | "canceled";
 
@@ -349,6 +350,7 @@ type BookingActionDialogProps = {
 
 function BookingActionDialog({ action, open, onClose, onCompleted, reload }: BookingActionDialogProps) {
   const { authFetch } = useAuth();
+  const router = useRouter();
   const [reservationId, setReservationId] = useState("");
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
@@ -379,6 +381,8 @@ function BookingActionDialog({ action, open, onClose, onCompleted, reload }: Boo
         throw new Error(await getResponseErrorMessage(response));
       }
 
+      const payload =
+        action === "issue" ? await parseJSON<IssueTicketResponse>(response) : undefined;
       const successMessage =
         action === "reserve"
           ? "Reservation confirmed. The traveler will receive a confirmation shortly."
@@ -388,6 +392,15 @@ function BookingActionDialog({ action, open, onClose, onCompleted, reload }: Boo
       setReservationId("");
       await reload();
       onCompleted(successMessage);
+
+      if (action === "issue" && payload) {
+        try {
+          sessionStorage.setItem("lastIssuedTicket", JSON.stringify(payload));
+        } catch (storageError) {
+          console.error("Unable to store issued ticket response", storageError);
+        }
+        router.push("/dashboard/bookings/issued-ticket");
+      }
     } catch (error) {
       setStatus("error");
       setMessage(error instanceof Error ? error.message : "Unable to process this request.");
