@@ -20,6 +20,7 @@ type ApiSubAdmin = {
   canIssueTickets?: boolean;
   canReserveTickets?: boolean;
   canRetrieveTickets?: boolean;
+  canCancelTickets?: boolean;
   reservedTickets?: string[];
 };
 
@@ -31,10 +32,15 @@ export type SubAdmin = {
   canIssueTickets: boolean;
   canReserveTickets: boolean;
   canRetrieveTickets: boolean;
+  canCancelTickets: boolean;
   reservedTickets: string[];
 };
 
-type PermissionKey = "canIssueTickets" | "canReserveTickets" | "canRetrieveTickets";
+type PermissionKey =
+  | "canIssueTickets"
+  | "canReserveTickets"
+  | "canRetrieveTickets"
+  | "canCancelTickets";
 
 function normalizeSubAdmin(payload: ApiSubAdmin): SubAdmin | null {
   const id = payload.id ?? payload._id;
@@ -50,6 +56,7 @@ function normalizeSubAdmin(payload: ApiSubAdmin): SubAdmin | null {
     canIssueTickets: payload.canIssueTickets ?? false,
     canReserveTickets: payload.canReserveTickets ?? false,
     canRetrieveTickets: payload.canRetrieveTickets ?? false,
+    canCancelTickets: payload.canCancelTickets ?? false,
     reservedTickets: Array.isArray(payload.reservedTickets)
       ? payload.reservedTickets.map(String)
       : [],
@@ -208,12 +215,13 @@ export default function SubAdminsPage() {
                 <th className="pb-3 pr-4">Issue Tickets</th>
                 <th className="pb-3 pr-4">Reserve Tickets</th>
                 <th className="pb-3 pr-4">Retrieve Tickets</th>
+                <th className="pb-3 pr-4">Cancel Tickets</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
               {loading ? (
                 <tr>
-                  <td className="py-6 text-center text-sm text-slate-500" colSpan={6}>
+                  <td className="py-6 text-center text-sm text-slate-500" colSpan={7}>
                     Loading sub-admins…
                   </td>
                 </tr>
@@ -221,7 +229,7 @@ export default function SubAdminsPage() {
 
               {!loading && subAdmins.length === 0 ? (
                 <tr>
-                  <td className="py-6 text-center text-sm text-slate-500" colSpan={6}>
+                  <td className="py-6 text-center text-sm text-slate-500" colSpan={7}>
                     No sub-admins found. Try refreshing the list.
                   </td>
                 </tr>
@@ -273,6 +281,14 @@ export default function SubAdminsPage() {
                         disabled={isBusy}
                         onCheckedChange={(checked) => updatePermissions(admin.id, { canRetrieveTickets: checked })}
                         aria-label={`Allow ${admin.name} to retrieve tickets`}
+                      />
+                    </td>
+                    <td className="py-3 pr-4">
+                      <Switch
+                        checked={admin.canCancelTickets}
+                        disabled={isBusy}
+                        onCheckedChange={(checked) => updatePermissions(admin.id, { canCancelTickets: checked })}
+                        aria-label={`Allow ${admin.name} to cancel tickets`}
                       />
                     </td>
                   </tr>
