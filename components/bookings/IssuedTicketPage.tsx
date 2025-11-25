@@ -6,11 +6,23 @@ import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
+export type MongoNumber = { $numberInt?: string; $numberDecimal?: string };
+
 export type IssueTicketResponse = {
-  data: FlightOrder;
-  dictionaries?: {
-    locations?: Record<string, LocationDictionary>;
-  };
+  status?: string;
+  reservationId?: string;
+  data?: FlightOrder;
+  FlightBooked?: FlightOrder;
+  MFlight?: FlightOffer;
+  littelFlightInfo?: { dictionaries?: TicketDictionaries }[];
+  dictionaries?: TicketDictionaries;
+};
+
+export type TicketDictionaries = {
+  locations?: Record<string, LocationDictionary>;
+  carriers?: Record<string, string>;
+  aircraft?: Record<string, string>;
+  currencies?: Record<string, string>;
 };
 
 export type FlightOrder = {
@@ -65,7 +77,7 @@ export type Segment = {
   segmentType?: string;
   isFlown?: boolean;
   id?: string;
-  numberOfStops?: number;
+  numberOfStops?: number | MongoNumber;
 };
 
 export type LocationInfo = {
@@ -111,7 +123,12 @@ export type FareDetailsBySegment = {
   includedCheckedBags?: {
     weight?: number;
     weightUnit?: string;
+    quantity?: number | MongoNumber;
   };
+  includedCabinBags?: {
+    quantity?: number | MongoNumber;
+  };
+  cabin?: string;
 };
 
 export type Traveler = {
@@ -174,6 +191,7 @@ export type Commission = {
   values?: {
     commissionType?: string;
     amount?: string;
+    percentage?: number | MongoNumber;
   }[];
 };
 
@@ -186,6 +204,11 @@ export default function IssuedTicketPage() {
   const [response, setResponse] = useState<IssueTicketResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const flightOrder = response?.data ?? response?.FlightBooked;
+  const flightOffer = flightOrder?.flightOffers?.[0] ?? response?.MFlight;
+  const dictionaries =
+    response?.dictionaries ?? response?.littelFlightInfo?.find((entry) => entry.dictionaries)?.dictionaries;
+
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect */
     const { ticket, error: message } = readIssuedTicket();
@@ -195,8 +218,8 @@ export default function IssuedTicketPage() {
   }, []);
 
   const ticketLookup = useMemo(() => {
-    return new Map(response?.data.tickets?.map((ticket) => [ticket.travelerId ?? "", ticket]));
-  }, [response]);
+    return new Map(flightOrder?.tickets?.map((ticket) => [ticket.travelerId ?? "", ticket]));
+  }, [flightOrder]);
 
   if (error || !response) {
     return (
@@ -219,9 +242,7 @@ export default function IssuedTicketPage() {
     );
   }
 
-  const { data, dictionaries } = response;
-  const flightOffer = data.flightOffers?.[0];
-  const recordLocator = data.associatedRecords?.[0]?.reference ?? "—";
+  const recordLocator = flightOrder?.associatedRecords?.[0]?.reference ?? "—";
   const validatingAirlines = flightOffer?.validatingAirlineCodes ?? [];
   const locations = dictionaries?.locations ?? {};
 
@@ -256,7 +277,7 @@ export default function IssuedTicketPage() {
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
             <p className="text-sm font-semibold text-slate-500">Flight order</p>
-            <h2 className="text-xl font-semibold text-slate-900">{data.id}</h2>
+            <h2 className="text-xl font-semibold text-slate-900">{flightOrder?.id ?? "Not provided"}</h2>
             <p className="text-sm text-slate-500">Record locator {recordLocator}</p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -273,8 +294,8 @@ export default function IssuedTicketPage() {
         </div>
 
         <dl className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <DescriptionItem label="Queuing office" value={data.queuingOfficeId} />
-          <DescriptionItem label="Ticketing option" value={data.ticketingAgreement?.option} />
+          <DescriptionItem label="Queuing office" value={flightOrder?.queuingOfficeId} />
+          <DescriptionItem label="Ticketing option" value={flightOrder?.ticketingAgreement?.option} />
           <DescriptionItem label="Last ticketing date" value={formatDate(flightOffer?.lastTicketingDate)} />
           <DescriptionItem label="Flight offer" value={flightOffer?.id} />
           <DescriptionItem
@@ -284,7 +305,7 @@ export default function IssuedTicketPage() {
           />
           <DescriptionItem
             label="Commissions"
-            value={formatCommission(data.commissions)}
+            value={formatCommission(flightOrder?.commissions)}
             placeholder="None"
           />
         </dl>
@@ -379,7 +400,7 @@ export default function IssuedTicketPage() {
                       <DescriptionItem label="Segment type" value={segment.segmentType} />
                       <DescriptionItem
                         label="Stops"
-                        value={typeof segment.numberOfStops === "number" ? segment.numberOfStops.toString() : undefined}
+                        value={normalizeNumeric(segment.numberOfStops)?.toString()}
                       />
                     </div>
                   </div>
@@ -396,11 +417,11 @@ export default function IssuedTicketPage() {
             <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">Travelers</p>
             <h2 className="text-xl font-semibold text-slate-900">Passengers & contacts</h2>
           </div>
-          <Badge variant="outline">{data.travelers?.length ?? 0} people</Badge>
+          <Badge variant="outline">{flightOrder?.travelers?.length ?? 0} people</Badge>
         </div>
 
         <div className="mt-4 grid gap-4 md:grid-cols-2">
-          {data.travelers?.map((traveler) => {
+          {flightOrder?.travelers?.map((traveler) => {
             const ticket = ticketLookup.get(traveler.id);
             return (
               <div key={traveler.id} className="rounded-2xl border border-slate-100 p-4">
@@ -428,11 +449,11 @@ export default function IssuedTicketPage() {
           })}
         </div>
 
-        {data.contacts && data.contacts.length > 0 ? (
+        {flightOrder?.contacts && flightOrder.contacts.length > 0 ? (
           <div className="mt-6 space-y-2">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Agency contacts</h3>
             <div className="grid gap-3 md:grid-cols-2">
-              {data.contacts.map((contact, index) => (
+              {flightOrder.contacts.map((contact, index) => (
                 <div key={index} className="rounded-2xl border border-slate-100 p-4 text-sm text-slate-700">
                   <p className="font-semibold text-slate-900">{contact.addresseeName?.firstName ?? "Contact"}</p>
                   <p className="text-xs text-slate-500">{contact.purpose ?? "STANDARD"}</p>
@@ -454,7 +475,7 @@ export default function IssuedTicketPage() {
             <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">Tickets</p>
             <h2 className="text-xl font-semibold text-slate-900">Document numbers</h2>
           </div>
-          <Badge variant="secondary">{data.tickets?.length ?? 0} documents</Badge>
+          <Badge variant="secondary">{flightOrder?.tickets?.length ?? 0} documents</Badge>
         </div>
 
         <div className="mt-4 overflow-x-auto">
@@ -468,7 +489,7 @@ export default function IssuedTicketPage() {
               </tr>
             </thead>
             <tbody>
-              {data.tickets?.map((ticket) => (
+              {flightOrder?.tickets?.map((ticket) => (
                 <tr key={ticket.documentNumber} className="border-t border-slate-100">
                   <td className="px-4 py-3 font-semibold text-slate-900">{ticket.documentNumber}</td>
                   <td className="px-4 py-3">Traveler {ticket.travelerId}</td>
@@ -485,11 +506,11 @@ export default function IssuedTicketPage() {
         </div>
       </section>
 
-      {data.remarks?.general && data.remarks.general.length > 0 ? (
+      {flightOrder?.remarks?.general && flightOrder.remarks.general.length > 0 ? (
         <section className="rounded-3xl bg-white p-6 shadow-sm">
           <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">Remarks</p>
           <ul className="mt-3 space-y-2 text-sm text-slate-700">
-            {data.remarks.general.map((remark, index) => (
+            {flightOrder.remarks.general.map((remark, index) => (
               <li key={index} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
                 <p className="font-semibold text-slate-900">{remark.subType ?? "General"}</p>
                 <p className="text-slate-700">{remark.text ?? "No remark provided."}</p>
@@ -555,9 +576,36 @@ function formatCommission(commissions?: Commission[]) {
   if (!commissions || commissions.length === 0) return undefined;
   const values = commissions
     .flatMap((commission) => commission.values ?? [])
-    .map((value) => `${value.commissionType ?? ""} ${value.amount ?? ""}`.trim())
+    .map((value) => {
+      const percentage = normalizeNumeric(value.percentage);
+      const amount = value.amount;
+      const parts = [value.commissionType, percentage !== undefined ? `${percentage}%` : amount]
+        .filter(Boolean)
+        .map((part) => part?.toString().trim())
+        .filter(Boolean);
+      return parts.join(" ");
+    })
     .filter(Boolean);
   return values.length > 0 ? values.join(", ") : undefined;
+}
+
+function normalizeNumeric(value: number | MongoNumber | string | undefined) {
+  if (typeof value === "number") return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isNaN(parsed) ? undefined : parsed;
+  }
+  if (value && typeof value === "object") {
+    if ("$numberInt" in value && typeof value.$numberInt === "string") {
+      const parsed = Number(value.$numberInt);
+      return Number.isNaN(parsed) ? undefined : parsed;
+    }
+    if ("$numberDecimal" in value && typeof value.$numberDecimal === "string") {
+      const parsed = Number(value.$numberDecimal);
+      return Number.isNaN(parsed) ? undefined : parsed;
+    }
+  }
+  return undefined;
 }
 
 function formatLocation(code: string | undefined, locations: Record<string, LocationDictionary>) {
