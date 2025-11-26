@@ -46,6 +46,8 @@ export default function Sidebar() {
               }`}
             >
               {item.label}
+              <span className="text-white"> {item.label}</span>
+             
             </Link>
           );
         })}

@@ -21,7 +21,7 @@ export default function DashboardHomePage() {
   ];
 
   const shortcuts = [
-    { title: "Reserve by ID", description: "Reserve a booking when a traveler calls in.", href: "/dashboard/bookings" },
+    { title: "Cancel by ID", description: "Cancel a booking instantly when a traveler calls in.", href: "/dashboard/bookings" },
     { title: "Issue by ID", description: "Issue a paid ticket instantly.", href: "/dashboard/bookings" },
     { title: "View filters", description: "Search by airline, travel date, or passenger.", href: "/dashboard/bookings" },
   ];
