@@ -67,7 +67,7 @@ export default function BookingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [pendingCancellationId, setPendingCancellationId] = useState<string | null>(null);
-  const [reserveOpen, setReserveOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
   const [issueOpen, setIssueOpen] = useState(false);
 
   const filters = useMemo(() => deriveFilters(searchParams), [searchParams]);
@@ -176,7 +176,7 @@ export default function BookingsPage() {
             <p className="text-sm text-slate-500">Filter by status, airline, or travel dates to resolve every request faster.</p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
-            <Button onClick={() => setReserveOpen(true)}>Reserve by ID</Button>
+            <Button onClick={() => setCancelOpen(true)}>Cancel by ID</Button>
             <Button variant="outline" onClick={() => setIssueOpen(true)}>
               Issue by ID
             </Button>
@@ -323,9 +323,9 @@ export default function BookingsPage() {
       </section>
 
       <BookingActionDialog
-        action="reserve"
-        open={reserveOpen}
-        onClose={() => setReserveOpen(false)}
+        action="cancel"
+        open={cancelOpen}
+        onClose={() => setCancelOpen(false)}
         onCompleted={(message) => setFeedback({ type: "success", message })}
         reload={loadBookings}
       />
@@ -341,7 +341,7 @@ export default function BookingsPage() {
 }
 
 type BookingActionDialogProps = {
-  action: "reserve" | "issue";
+  action: "cancel" | "issue";
   open: boolean;
   onClose: () => void;
   onCompleted: (message: string) => void;
@@ -371,22 +371,28 @@ function BookingActionDialog({ action, open, onClose, onCompleted, reload }: Boo
     setIsSubmitting(true);
 
     try {
-      const endpoint = action === "reserve" ? "/bookings/reserve" : "/bookings/issue";
+      const endpoint =
+        action === "cancel"
+          ? `/bookings/${reservationId}/cancel`
+          : action === "issue"
+            ? "/bookings/issue"
+            : "/bookings/reserve";
       const response = await authFetch(endpoint, {
         method: "POST",
-        body: JSON.stringify({ reservationId }),
+        body: action === "cancel" ? undefined : JSON.stringify({ reservationId }),
       });
 
       if (!response.ok) {
         throw new Error(await getResponseErrorMessage(response));
       }
 
-      const payload =
-        action === "issue" ? await parseJSON<IssueTicketResponse>(response) : undefined;
+      const payload = action === "issue" ? await parseJSON<IssueTicketResponse>(response) : undefined;
       const successMessage =
-        action === "reserve"
-          ? "Reservation confirmed. The traveler will receive a confirmation shortly."
-          : "Ticket issued successfully.";
+        action === "cancel"
+          ? "Booking canceled successfully."
+          : action === "issue"
+            ? "Ticket issued successfully."
+            : "Reservation confirmed. The traveler will receive a confirmation shortly.";
       setStatus("success");
       setMessage(successMessage);
       setReservationId("");
@@ -409,10 +415,10 @@ function BookingActionDialog({ action, open, onClose, onCompleted, reload }: Boo
     }
   };
 
-  const title = action === "reserve" ? "Reserve by ID" : "Issue by ID";
+  const title = action === "cancel" ? "Cancel by ID" : "Issue by ID";
   const description =
-    action === "reserve"
-      ? "Provide a reservation ID or record locator to reserve a seat."
+    action === "cancel"
+      ? "Provide a reservation ID or record locator to cancel the flight."
       : "Provide a reservation ID to issue a paid ticket immediately.";
 
   return (
@@ -440,7 +446,7 @@ function BookingActionDialog({ action, open, onClose, onCompleted, reload }: Boo
             Cancel
           </Button>
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Processing…" : action === "reserve" ? "Reserve" : "Issue"}
+            {isSubmitting ? "Processing…" : action === "cancel" ? "Cancel" : "Issue"}
           </Button>
         </div>
       </form>
