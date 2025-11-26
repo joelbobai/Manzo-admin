@@ -161,7 +161,15 @@ export default function SubAdminsPage() {
       }
 
       const payload = await parseJSON<ApiSubAdmin>(response);
-      applyRemoteSubAdmin(payload, adminId);
+      const payloadWithFallback: ApiSubAdmin = { ...payload };
+
+      for (const [key, value] of Object.entries(changes) as [PermissionKey, boolean][]) {
+        if (payloadWithFallback[key] === undefined) {
+          payloadWithFallback[key] = value;
+        }
+      }
+
+      applyRemoteSubAdmin(payloadWithFallback, adminId);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to update permissions.";
       setError(message);
