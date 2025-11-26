@@ -371,16 +371,12 @@ function BookingActionDialog({ action, open, onClose, onCompleted, reload }: Boo
     setIsSubmitting(true);
 
     try {
-<<<<<<< HEAD
-      const endpoint = action === "reserve" ? "/bookings/reserve" : "/api/v1/flights/issueTicket";
-=======
       const endpoint =
         action === "cancel"
           ? `/bookings/${reservationId}/cancel`
           : action === "issue"
-            ? "/bookings/issue"
+            ? "/api/v1/flights/issueTicket"
             : "/bookings/reserve";
->>>>>>> 8cf742754471082be738baa95b955ee7c5eddaee
       const response = await authFetch(endpoint, {
         method: "POST",
         body: action === "cancel" ? undefined : JSON.stringify({ reservationId }),
