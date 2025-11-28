@@ -16,7 +16,7 @@ import { useAuth } from "@/stores/auth-store";
 import { getResponseErrorMessage, parseJSON } from "@/lib/http";
 import { type IssueTicketResponse } from "./IssuedTicketPage";
 
-export type BookingStatus = "active" | "completed" | "reserved" | "canceled";
+export type BookingStatus = "reserved" | "issued" | "booked" | "cancelled" | "canceled" | string;
 
 export type Booking = {
   id: string;
@@ -29,6 +29,7 @@ export type Booking = {
   createdAt?: string;
   updatedAt?: string;
   travelDate?: string;
+  FlightBooked?: unknown;
 };
 
 type Filters = {
@@ -51,17 +52,17 @@ const STATUS_TABS: { label: string; value: Filters["status"] }[] = [
   { label: "All", value: "all" },
   { label: "Active", value: "active" },
   { label: "Reserved", value: "reserved" },
-  { label: "Completed", value: "completed" },
-  { label: "Canceled", value: "canceled" },
+  { label: "Issued", value: "issued" },
+  { label: "Booked", value: "booked" },
+  { label: "Canceled", value: "cancelled" },
 ];
 
 export default function BookingsPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const queryKey = searchParams.toString();
   const { authFetch, user } = useAuth();
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [allBookings, setAllBookings] = useState<Booking[]>([]);
   const [airlines, setAirlines] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -109,7 +110,7 @@ export default function BookingsPage() {
     setLoading(true);
     setError(null);
     try {
-      const url = `/bookings${queryKey ? `?${queryKey}` : ""}`;
+      const url = `/api/v1/flights/bookings`;
       const response = await authFetch(url);
       if (!response.ok) {
         throw new Error(await getResponseErrorMessage(response));
@@ -121,7 +122,7 @@ export default function BookingsPage() {
         : payload?.bookings ?? payload?.data ?? payload?.results ?? [];
 
       const normalized = Array.isArray(list) ? list : [];
-      setBookings(normalized);
+      setAllBookings(normalized);
       setAirlines(
         Array.from(
           new Set(
@@ -136,11 +137,37 @@ export default function BookingsPage() {
     } finally {
       setLoading(false);
     }
-  }, [authFetch, queryKey]);
+  }, [authFetch]);
 
   useEffect(() => {
     loadBookings();
   }, [loadBookings]);
+
+  const filteredBookings = useMemo(() => {
+    return allBookings.filter((booking) => {
+      const normalizedStatus = normalizeStatus(booking.status, booking);
+      const matchesStatus =
+        localFilters.status === "all" || normalizeStatus(localFilters.status) === normalizedStatus;
+
+      const query = localFilters.search.trim().toLowerCase();
+      const matchesSearch =
+        !query ||
+        [booking.bookingId, booking.reservationId, booking.passengerName, booking.pnr]
+          .filter((value): value is string => Boolean(value))
+          .some((value) => value.toLowerCase().includes(query));
+
+      const matchesAirline = !localFilters.airline || booking.airline === localFilters.airline;
+
+      const fromDate = localFilters.from ? new Date(localFilters.from) : null;
+      const toDate = localFilters.to ? new Date(localFilters.to) : null;
+      const travelDate = booking.travelDate ? new Date(booking.travelDate) : null;
+
+      const matchesFrom = !fromDate || (travelDate && !Number.isNaN(travelDate.getTime()) && travelDate >= fromDate);
+      const matchesTo = !toDate || (travelDate && !Number.isNaN(travelDate.getTime()) && travelDate <= toDate);
+
+      return matchesStatus && matchesSearch && matchesAirline && matchesFrom && matchesTo;
+    });
+  }, [allBookings, localFilters.airline, localFilters.from, localFilters.search, localFilters.status, localFilters.to]);
 
   const handleCancelBooking = async (bookingId: string) => {
     setPendingCancellationId(bookingId);
@@ -276,47 +303,52 @@ export default function BookingsPage() {
                     Loading bookings…
                   </td>
                 </tr>
-              ) : bookings.length === 0 ? (
-                <tr>
-                  <td colSpan={canCancel ? 6 : 5} className="px-4 py-6 text-center text-sm text-slate-500">
-                    No bookings match your filters.
-                  </td>
-                </tr>
-              ) : (
-                bookings.map((booking) => (
-                  <tr key={booking.id} className="border-t border-slate-100">
-                    <td className="px-4 py-4">
-                      <p className="font-semibold text-slate-900">{booking.bookingId ?? booking.id}</p>
-                      <p className="text-xs text-slate-500">PNR {booking.pnr ?? "—"}</p>
-                    </td>
+      ) : filteredBookings.length === 0 ? (
+        <tr>
+          <td colSpan={canCancel ? 6 : 5} className="px-4 py-6 text-center text-sm text-slate-500">
+            No bookings match your filters.
+          </td>
+        </tr>
+      ) : (
+        filteredBookings.map((booking) => {
+          const status = normalizeStatus(booking.status, booking);
+          const actionsAllowed = status !== "cancelled" && status !== "completed";
+
+          return (
+            <tr key={booking.id} className="border-t border-slate-100">
+              <td className="px-4 py-4">
+                <p className="font-semibold text-slate-900">{booking.bookingId ?? booking.id}</p>
+                <p className="text-xs text-slate-500">PNR {booking.pnr ?? "—"}</p>
+              </td>
                     <td className="px-4 py-4">
                       <p className="font-semibold text-slate-900">{booking.passengerName}</p>
                       <p className="text-xs text-slate-500">Created {formatDate(booking.createdAt)}</p>
                     </td>
-                    <td className="px-4 py-4">{booking.airline ?? "—"}</td>
-                    <td className="px-4 py-4">{formatDate(booking.travelDate)}</td>
-                    <td className="px-4 py-4">
-                      <StatusBadge status={booking.status} />
-                    </td>
-                    {canCancel ? (
-                      <td className="px-4 py-4 text-right">
-                        {booking.status === "canceled" || booking.status === "completed" ? (
-                          <span className="text-xs text-slate-400">No actions</span>
-                        ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={pendingCancellationId === booking.id}
-                            onClick={() => handleCancelBooking(booking.id)}
-                          >
-                            {pendingCancellationId === booking.id ? "Canceling…" : "Cancel"}
-                          </Button>
-                        )}
-                      </td>
-                    ) : null}
-                  </tr>
-                ))
-              )}
+              <td className="px-4 py-4">{booking.airline ?? "—"}</td>
+              <td className="px-4 py-4">{formatDate(booking.travelDate)}</td>
+              <td className="px-4 py-4">
+                <StatusBadge status={status} />
+              </td>
+              {canCancel ? (
+                <td className="px-4 py-4 text-right">
+                  {!actionsAllowed ? (
+                    <span className="text-xs text-slate-400">No actions</span>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={pendingCancellationId === booking.id}
+                      onClick={() => handleCancelBooking(booking.id)}
+                    >
+                      {pendingCancellationId === booking.id ? "Canceling…" : "Cancel"}
+                    </Button>
+                  )}
+                </td>
+              ) : null}
+            </tr>
+          );
+        })
+      )}
             </tbody>
           </table>
         </div>
@@ -454,15 +486,75 @@ function BookingActionDialog({ action, open, onClose, onCompleted, reload }: Boo
   );
 }
 
+function parseDate(value?: string) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function getTripBounds(flightBooked?: Booking["FlightBooked"]) {
+  const flightOffers = (flightBooked as { flightOffers?: unknown[] } | undefined)?.flightOffers;
+  if (!Array.isArray(flightOffers) || flightOffers.length === 0) return null;
+
+  const departures: Date[] = [];
+  const arrivals: Date[] = [];
+
+  flightOffers.forEach((offer) => {
+    const itineraries = (offer as { itineraries?: unknown[] } | undefined)?.itineraries;
+    itineraries?.forEach((itinerary) => {
+      const segments = (itinerary as { segments?: unknown[] } | undefined)?.segments;
+      segments?.forEach((segment) => {
+        const departure = parseDate((segment as { departure?: { at?: string } } | undefined)?.departure?.at);
+        const arrival = parseDate((segment as { arrival?: { at?: string } } | undefined)?.arrival?.at);
+
+        if (departure) departures.push(departure);
+        if (arrival) arrivals.push(arrival);
+      });
+    });
+  });
+
+  if (!departures.length || !arrivals.length) return null;
+
+  const tripStart = new Date(Math.min(...departures.map((date) => date.getTime())));
+  const tripEnd = new Date(Math.max(...arrivals.map((date) => date.getTime())));
+
+  if (Number.isNaN(tripStart.getTime()) || Number.isNaN(tripEnd.getTime())) return null;
+
+  return { tripStart, tripEnd };
+}
+
+function isActiveBooking(booking?: Booking, now = new Date()) {
+  if (!booking) return false;
+  const bounds = getTripBounds(booking.FlightBooked);
+  if (!bounds) return false;
+  return now >= bounds.tripStart && now <= bounds.tripEnd;
+}
+
+function normalizeStatus(status?: BookingStatus, booking?: Booking) {
+  if (isActiveBooking(booking)) return "active" as const;
+
+  const value = typeof status === "string" ? status.toLowerCase() : "";
+  if (value === "active") return "active" as const;
+  if (value === "reserved") return "reserved" as const;
+  if (value === "issued") return "issued" as const;
+  if (value === "booked") return "booked" as const;
+  if (value === "completed") return "completed" as const;
+  if (value === "cancelled" || value === "canceled") return "cancelled" as const;
+  return "active" as const;
+}
+
 function StatusBadge({ status }: { status: BookingStatus }) {
-  const config: Record<BookingStatus, { label: string; variant: "default" | "success" | "destructive" | "outline" }> = {
+  const normalized = normalizeStatus(status);
+  const config: Record<ReturnType<typeof normalizeStatus>, { label: string; variant: "default" | "success" | "destructive" | "outline" }> = {
     active: { label: "Active", variant: "default" },
-    completed: { label: "Completed", variant: "success" },
     reserved: { label: "Reserved", variant: "outline" },
-    canceled: { label: "Canceled", variant: "destructive" },
+    issued: { label: "Issued", variant: "success" },
+    booked: { label: "Booked", variant: "default" },
+    completed: { label: "Completed", variant: "success" },
+    cancelled: { label: "Canceled", variant: "destructive" },
   };
 
-  const { label, variant } = config[status] ?? config.active;
+  const { label, variant } = config[normalized] ?? config.active;
   return <Badge variant={variant}>{label}</Badge>;
 }
 
