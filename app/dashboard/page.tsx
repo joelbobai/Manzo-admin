@@ -4,6 +4,7 @@ import { useMemo } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/stores/auth-store";
+import DashboardSummaryCards from "@/components/dashboard/DashboardSummaryCards";
 
 export default function DashboardHomePage() {
   const { user } = useAuth();
@@ -13,13 +14,6 @@ export default function DashboardHomePage() {
     if (hour < 18) return "Good afternoon";
     return "Good evening";
   }, []);
-
-  const insights = [
-    { label: "Active flights", value: "18", change: "Flights currently in progress" },
-    { label: "Reservations", value: "42", change: "Reserved but not yet booked" },
-    { label: "Tickets issued", value: "54", change: "All flights that have been issued" },
-    { label: "Cancelled flights", value: "9", change: "Recently cancelled itineraries" },
-  ];
 
   const shortcuts = [
     { title: "Cancel by ID", description: "Cancel a booking instantly when a traveler calls in.", href: "/dashboard/bookings" },
@@ -35,14 +29,8 @@ export default function DashboardHomePage() {
         <p className="mt-2 text-sm text-slate-500">
           Track tickets, reservations, and escalations from a single view. All stats refresh every five minutes.
         </p>
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {insights.map((item) => (
-            <div key={item.label} className="rounded-2xl border border-slate-100 p-4">
-              <p className="text-sm text-slate-500">{item.label}</p>
-              <p className="text-3xl font-semibold text-slate-900">{item.value}</p>
-              <p className="text-xs text-slate-500">{item.change}</p>
-            </div>
-          ))}
+        <div className="mt-6">
+          <DashboardSummaryCards />
         </div>
       </div>
 
