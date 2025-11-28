@@ -373,13 +373,13 @@ function BookingActionDialog({ action, open, onClose, onCompleted, reload }: Boo
     try {
       const endpoint =
         action === "cancel"
-          ? `/bookings/${reservationId}/cancel`
+          ? `/api/v1/flights/issueCancel`
           : action === "issue"
             ? "/api/v1/flights/issueTicket"
             : "/bookings/reserve";
       const response = await authFetch(endpoint, {
         method: "POST",
-        body: action === "cancel" ? undefined : JSON.stringify({ reservationId }),
+        body: JSON.stringify({ reservationId }),
       });
 
       if (!response.ok) {
