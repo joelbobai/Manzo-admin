@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "@/stores/auth-store";
 
-const BOOKINGS_ENDPOINT = "/api/admin/bookings";
+const BOOKINGS_ENDPOINT = "/api/v1/flights/bookings";
 
 function parseDate(value) {
   if (!value) return null;
@@ -51,7 +52,7 @@ function calculateDashboardStats(bookings, now = new Date()) {
   bookings.forEach((booking) => {
     const status = booking?.status;
     if (status === "reserved") stats.reservations += 1;
-    if (status === "issued") stats.ticketsIssued += 1;
+    if (status === "booked") stats.ticketsIssued += 1;
     if (status === "cancelled") stats.cancelledFlights += 1;
 
     if (status !== "issued") return;
@@ -69,6 +70,7 @@ function calculateDashboardStats(bookings, now = new Date()) {
 }
 
 export default function DashboardSummaryCards() {
+    const { authFetch } = useAuth();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -79,7 +81,8 @@ export default function DashboardSummaryCards() {
       if (!isMountedRef.current) return;
       setLoading(true);
       setError(null);
-      const response = await fetch(BOOKINGS_ENDPOINT, { cache: "no-store" });
+     
+      const response = await authFetch(BOOKINGS_ENDPOINT, { method: "GET" });
       if (!response.ok) throw new Error("Failed to load bookings");
 
       const data = await response.json();
