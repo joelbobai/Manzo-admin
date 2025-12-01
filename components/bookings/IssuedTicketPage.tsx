@@ -288,7 +288,7 @@ export default function IssuedTicketPage() {
                 </Badge>
               ))
             ) : (
-              <Badge variant="secondary">Validating airline not provided</Badge>
+              <Badge variant="outline">Validating airline not provided</Badge>
             )}
           </div>
         </div>
@@ -366,7 +366,7 @@ export default function IssuedTicketPage() {
             <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">Itinerary</p>
             <h2 className="text-xl font-semibold text-slate-900">Flight segments</h2>
           </div>
-          <Badge variant="secondary">{flightOffer?.itineraries?.length ?? 0} routes</Badge>
+          <Badge variant="outline">{flightOffer?.itineraries?.length ?? 0} routes</Badge>
         </div>
 
         <div className="mt-4 space-y-4">
@@ -432,7 +432,7 @@ export default function IssuedTicketPage() {
                     </p>
                     <p className="text-xs text-slate-500">Traveler ID {traveler.id}</p>
                   </div>
-                  {traveler.gender ? <Badge variant="secondary">{traveler.gender}</Badge> : null}
+                  {traveler.gender ? <Badge variant="outline">{traveler.gender}</Badge> : null}
                 </div>
 
                 <div className="mt-3 space-y-2 text-sm text-slate-700">
@@ -475,7 +475,7 @@ export default function IssuedTicketPage() {
             <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">Tickets</p>
             <h2 className="text-xl font-semibold text-slate-900">Document numbers</h2>
           </div>
-          <Badge variant="secondary">{flightOrder?.tickets?.length ?? 0} documents</Badge>
+          <Badge variant="outline">{flightOrder?.tickets?.length ?? 0} documents</Badge>
         </div>
 
         <div className="mt-4 overflow-x-auto">
@@ -494,7 +494,7 @@ export default function IssuedTicketPage() {
                   <td className="px-4 py-3 font-semibold text-slate-900">{ticket.documentNumber}</td>
                   <td className="px-4 py-3">Traveler {ticket.travelerId}</td>
                   <td className="px-4 py-3">
-                    <Badge variant={ticket.documentStatus === "ISSUED" ? "success" : "secondary"}>
+                    <Badge variant={ticket.documentStatus === "ISSUED" ? "success" : "outline"}>
                       {ticket.documentStatus ?? "—"}
                     </Badge>
                   </td>
