@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactElement } from "react";
+import type { ComponentPropsWithoutRef, ReactElement } from "react";
 import { cloneElement, forwardRef, isValidElement } from "react";
 
 import { cn } from "@/lib/utils";
@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 type ButtonVariant = "default" | "outline" | "ghost" | "destructive";
 type ButtonSize = "sm" | "md" | "lg" | "icon";
 
-type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
+export type ButtonProps = ComponentPropsWithoutRef<"button"> & {
   variant?: ButtonVariant;
   size?: ButtonSize;
   asChild?: boolean;
