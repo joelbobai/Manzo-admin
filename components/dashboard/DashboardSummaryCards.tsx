@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/stores/auth-store";
 
 const BOOKINGS_ENDPOINT = "/api/v1/flights/bookings";
@@ -70,25 +71,26 @@ function calculateDashboardStats(bookings, now = new Date()) {
 }
 
 export default function DashboardSummaryCards() {
-    const { authFetch } = useAuth();
+  const router = useRouter();
+  const { authFetch } = useAuth();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const isMountedRef = useRef(false);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       if (!isMountedRef.current) return;
       setLoading(true);
       setError(null);
-     
+
       const response = await authFetch(BOOKINGS_ENDPOINT, { method: "GET" });
       if (!response.ok) throw new Error("Failed to load bookings");
 
       const data = await response.json();
       if (!isMountedRef.current) return;
       setBookings(Array.isArray(data) ? data : []);
-    } catch (err) {
+    } catch {
       if (!isMountedRef.current) return;
       setError("Unable to load booking stats. Please try again.");
       setBookings([]);
@@ -96,7 +98,7 @@ export default function DashboardSummaryCards() {
       if (!isMountedRef.current) return;
       setLoading(false);
     }
-  };
+  }, [authFetch]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -113,7 +115,7 @@ export default function DashboardSummaryCards() {
       isMountedRef.current = false;
       clearInterval(intervalId);
     };
-  }, []);
+  }, [fetchData]);
 
   const computedStats = useMemo(() => calculateDashboardStats(bookings), [bookings]);
 
@@ -131,21 +133,50 @@ export default function DashboardSummaryCards() {
   }, [computedStats, loading]);
 
   const insightItems = [
-    { label: "Active flights", value: displayStats.activeFlights, change: "Flights currently in progress" },
-    { label: "Reservations", value: displayStats.reservations, change: "Reserved but not yet booked" },
-    { label: "Tickets issued", value: displayStats.ticketsIssued, change: "All flights that have been issued" },
-    { label: "Cancelled flights", value: displayStats.cancelledFlights, change: "Recently cancelled itineraries" },
+    {
+      label: "Active flights",
+      value: displayStats.activeFlights,
+      change: "Flights currently in progress",
+      href: "/dashboard/bookings?status=active",
+    },
+    {
+      label: "Reservations",
+      value: displayStats.reservations,
+      change: "Reserved but not yet booked",
+      href: "/dashboard/bookings?status=reserved",
+    },
+    {
+      label: "Tickets issued",
+      value: displayStats.ticketsIssued,
+      change: "All flights that have been issued",
+      href: "/dashboard/bookings?status=issued",
+    },
+    {
+      label: "Cancelled flights",
+      value: displayStats.cancelledFlights,
+      change: "Recently cancelled itineraries",
+      href: "/dashboard/bookings?status=cancelled",
+    },
   ];
 
   return (
     <div className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {insightItems.map((item) => (
-          <div key={item.label} className="rounded-2xl border border-slate-100 p-4">
+          <button
+            key={item.label}
+            type="button"
+            onClick={() => router.push(item.href)}
+            className="group h-full rounded-2xl border border-slate-100 p-4 text-left transition hover:-translate-y-0.5 hover:border-slate-200 hover:shadow-sm"
+          >
             <p className="text-sm text-slate-500">{item.label}</p>
             <p className="text-3xl font-semibold text-slate-900">{item.value}</p>
             <p className="text-xs text-slate-500">{item.change}</p>
-          </div>
+            <span className="mt-2 inline-flex items-center text-xs font-semibold text-slate-600 transition group-hover:text-slate-900">
+              View details
+              <span className="ml-2 inline-block transition-transform group-hover:translate-x-0.5">→</span>
+            </span>
+          </button>
         ))}
       </div>
       {error ? <p className="text-sm text-red-500">{error}</p> : null}
