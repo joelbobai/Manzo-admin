@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   usePathname,
   useRouter,
@@ -70,6 +70,7 @@ export default function BookingsPage() {
   const [pendingCancellationId, setPendingCancellationId] = useState<string | null>(null);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [issueOpen, setIssueOpen] = useState(false);
+  const [expandedBookingId, setExpandedBookingId] = useState<string | null>(null);
 
   const filters = useMemo(() => deriveFilters(searchParams), [searchParams]);
   const [localFilters, setLocalFilters] = useState<Filters>(filters);
@@ -294,18 +295,19 @@ export default function BookingsPage() {
                 <th className="px-4 py-3">Travel date</th>
                 <th className="px-4 py-3">Status</th>
                 {canCancel ? <th className="px-4 py-3 text-right">Actions</th> : null}
+                <th className="px-4 py-3 text-right">Details</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={canCancel ? 6 : 5} className="px-4 py-6 text-center text-sm text-slate-500">
+                  <td colSpan={canCancel ? 7 : 6} className="px-4 py-6 text-center text-sm text-slate-500">
                     Loading bookings…
                   </td>
                 </tr>
       ) : filteredBookings.length === 0 ? (
         <tr>
-          <td colSpan={canCancel ? 6 : 5} className="px-4 py-6 text-center text-sm text-slate-500">
+          <td colSpan={canCancel ? 7 : 6} className="px-4 py-6 text-center text-sm text-slate-500">
             No bookings match your filters.
           </td>
         </tr>
@@ -315,37 +317,105 @@ export default function BookingsPage() {
           const actionsAllowed = status !== "cancelled" && status !== "completed";
 
           return (
-            <tr key={booking.id} className="border-t border-slate-100">
-              <td className="px-4 py-4">
-                <p className="font-semibold text-slate-900">{booking.bookingId ?? booking.id}</p>
-                <p className="text-xs text-slate-500">PNR {booking.pnr ?? "—"}</p>
-              </td>
-                    <td className="px-4 py-4">
-                      <p className="font-semibold text-slate-900">{booking.passengerName}</p>
-                      <p className="text-xs text-slate-500">Created {formatDate(booking.createdAt)}</p>
-                    </td>
-              <td className="px-4 py-4">{booking.airline ?? "—"}</td>
-              <td className="px-4 py-4">{formatDate(booking.travelDate)}</td>
-              <td className="px-4 py-4">
-                <StatusBadge status={status} />
-              </td>
-              {canCancel ? (
-                <td className="px-4 py-4 text-right">
-                  {!actionsAllowed ? (
-                    <span className="text-xs text-slate-400">No actions</span>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={pendingCancellationId === booking.id}
-                      onClick={() => handleCancelBooking(booking.id)}
-                    >
-                      {pendingCancellationId === booking.id ? "Canceling…" : "Cancel"}
-                    </Button>
-                  )}
+            <Fragment key={booking.id}>
+              <tr className="border-t border-slate-100">
+                <td className="px-4 py-4">
+                  <p className="font-semibold text-slate-900">{booking.bookingId ?? booking.id}</p>
+                  <p className="text-xs text-slate-500">PNR {booking.pnr ?? "—"}</p>
                 </td>
+                <td className="px-4 py-4">
+                  <p className="font-semibold text-slate-900">{booking.passengerName}</p>
+                  <p className="text-xs text-slate-500">Created {formatDate(booking.createdAt)}</p>
+                </td>
+                <td className="px-4 py-4">{booking.airline ?? "—"}</td>
+                <td className="px-4 py-4">{formatDate(booking.travelDate)}</td>
+                <td className="px-4 py-4">
+                  <StatusBadge status={status} />
+                </td>
+                {canCancel ? (
+                  <td className="px-4 py-4 text-right">
+                    {!actionsAllowed ? (
+                      <span className="text-xs text-slate-400">No actions</span>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={pendingCancellationId === booking.id}
+                        onClick={() => handleCancelBooking(booking.id)}
+                      >
+                        {pendingCancellationId === booking.id ? "Canceling…" : "Cancel"}
+                      </Button>
+                    )}
+                  </td>
+                ) : null}
+                <td className="px-4 py-4 text-right">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setExpandedBookingId((current) => (current === booking.id ? null : booking.id))
+                    }
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                  >
+                    {expandedBookingId === booking.id ? "Hide details" : "View details"}
+                    <span
+                      className={`inline-block transform text-base transition-transform ${
+                        expandedBookingId === booking.id ? "-rotate-90" : "rotate-90"
+                      }`}
+                    >
+                      ›
+                    </span>
+                  </button>
+                </td>
+              </tr>
+              {expandedBookingId === booking.id ? (
+                <tr className="border-t border-slate-100 bg-slate-50/60">
+                  <td colSpan={canCancel ? 7 : 6} className="px-4 py-4 text-sm text-slate-700">
+                    <div className="grid gap-4 lg:grid-cols-2">
+                      <div className="space-y-2">
+                        <p className="text-xs font-semibold uppercase text-slate-500">Booking details</p>
+                        <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 sm:grid-cols-3">
+                          <DetailItem label="Booking ID" value={booking.bookingId ?? booking.id} />
+                          <DetailItem label="Reservation ID" value={booking.reservationId ?? "—"} />
+                          <DetailItem label="PNR" value={booking.pnr ?? "—"} />
+                          <DetailItem label="Airline" value={booking.airline ?? "—"} />
+                          <DetailItem label="Passenger" value={booking.passengerName} />
+                          <DetailItem label="Status" value={<StatusBadge status={status} />} />
+                          <DetailItem label="Travel date" value={formatDateTime(booking.travelDate)} />
+                          <DetailItem label="Created" value={formatDateTime(booking.createdAt)} />
+                          <DetailItem label="Updated" value={formatDateTime(booking.updatedAt)} />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <p className="text-xs font-semibold uppercase text-slate-500">Itinerary</p>
+                        {extractSegments(booking.FlightBooked).length === 0 ? (
+                          <p className="text-xs text-slate-500">No itinerary details available.</p>
+                        ) : (
+                          <ul className="space-y-2 text-xs text-slate-700">
+                            {extractSegments(booking.FlightBooked).map((segment, index) => (
+                              <li key={`${booking.id}-segment-${index}`} className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="font-semibold">
+                                    {segment.from} → {segment.to}
+                                  </span>
+                                  <span className="text-slate-500">
+                                    {segment.carrier ?? "—"} {segment.number ?? ""}
+                                  </span>
+                                </div>
+                                <div className="mt-1 text-slate-600">
+                                  <p>Departure: {formatDateTime(segment.departure)}</p>
+                                  <p>Arrival: {formatDateTime(segment.arrival)}</p>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                </tr>
               ) : null}
-            </tr>
+            </Fragment>
           );
         })
       )}
@@ -486,6 +556,57 @@ function BookingActionDialog({ action, open, onClose, onCompleted, reload }: Boo
   );
 }
 
+function DetailItem({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="space-y-1">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+      <div className="text-slate-800">{value}</div>
+    </div>
+  );
+}
+
+type TripSegment = {
+  from: string;
+  to: string;
+  departure?: string;
+  arrival?: string;
+  carrier?: string;
+  number?: string;
+};
+
+function extractSegments(flightBooked?: Booking["FlightBooked"]): TripSegment[] {
+  const flightOffers = (flightBooked as { flightOffers?: unknown[] } | undefined)?.flightOffers;
+  if (!Array.isArray(flightOffers) || flightOffers.length === 0) return [];
+
+  const segments: TripSegment[] = [];
+
+  flightOffers.forEach((offer) => {
+    const itineraries = (offer as { itineraries?: unknown[] } | undefined)?.itineraries;
+    itineraries?.forEach((itinerary) => {
+      const itinerarySegments = (itinerary as { segments?: unknown[] } | undefined)?.segments;
+      itinerarySegments?.forEach((segment) => {
+        const segmentData = segment as {
+          departure?: { iataCode?: string; at?: string };
+          arrival?: { iataCode?: string; at?: string };
+          carrierCode?: string;
+          number?: string;
+        };
+
+        segments.push({
+          from: segmentData?.departure?.iataCode ?? "—",
+          to: segmentData?.arrival?.iataCode ?? "—",
+          departure: segmentData?.departure?.at,
+          arrival: segmentData?.arrival?.at,
+          carrier: segmentData?.carrierCode,
+          number: segmentData?.number,
+        });
+      });
+    });
+  });
+
+  return segments;
+}
+
 function parseDate(value?: string) {
   if (!value) return null;
   const date = new Date(value);
@@ -566,6 +687,23 @@ function deriveFilters(params: ReadonlyURLSearchParams): Filters {
     to: params.get("to") ?? "",
     airline: params.get("airline") ?? "",
   };
+}
+
+function formatDateTime(value?: string) {
+  if (!value) {
+    return "—";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "—";
+  }
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 function formatDate(value?: string) {
