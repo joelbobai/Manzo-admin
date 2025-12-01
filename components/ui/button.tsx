@@ -1,6 +1,7 @@
 "use client";
 
-import { forwardRef } from "react";
+import type { ReactElement } from "react";
+import { cloneElement, forwardRef, isValidElement } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -10,6 +11,7 @@ type ButtonSize = "sm" | "md" | "lg" | "icon";
 type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;
   size?: ButtonSize;
+  asChild?: boolean;
 };
 
 const variantClasses: Record<ButtonVariant, string> = {
@@ -29,20 +31,34 @@ const sizeClasses: Record<ButtonSize, string> = {
   icon: "h-9 w-9 rounded-lg",
 };
 
-const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = "default", size = "md", type = "button", ...props }, ref) => {
+const Button = forwardRef<HTMLButtonElement | HTMLAnchorElement, ButtonProps>(
+  ({ className, variant = "default", size = "md", type = "button", asChild = false, children, ...props }, ref) => {
+    const buttonClassName = cn(
+      "inline-flex items-center justify-center gap-2 transition focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-slate-400 disabled:cursor-not-allowed disabled:opacity-60",
+      variantClasses[variant],
+      sizeClasses[size],
+      className,
+    );
+
+    if (asChild && isValidElement(children)) {
+      const child = children as ReactElement<{ className?: string }>;
+
+      return cloneElement(child, {
+        className: cn(buttonClassName, child.props.className),
+        ref,
+        ...props,
+      } as any);
+    }
+
     return (
       <button
-        ref={ref}
+        ref={ref as React.Ref<HTMLButtonElement>}
         type={type}
-        className={cn(
-          "inline-flex items-center justify-center gap-2 transition focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-slate-400 disabled:cursor-not-allowed disabled:opacity-60",
-          variantClasses[variant],
-          sizeClasses[size],
-          className,
-        )}
+        className={buttonClassName}
         {...props}
-      />
+      >
+        {children}
+      </button>
     );
   },
 );

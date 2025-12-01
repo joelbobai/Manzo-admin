@@ -255,7 +255,7 @@ export default function SubAdminsPage() {
                       </div>
                     </td>
                     <td className="py-3 pr-4">
-                      <Badge variant={admin.isActive ? "default" : "secondary"}>
+                      <Badge variant={admin.isActive ? "default" : "outline"}>
                         {admin.isActive ? "Active" : "Inactive"}
                       </Badge>
                     </td>

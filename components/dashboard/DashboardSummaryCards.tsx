@@ -4,19 +4,41 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/stores/auth-store";
 
+type FlightSegment = {
+  departure?: { at?: string | number | Date };
+  arrival?: { at?: string | number | Date };
+};
+
+type FlightItinerary = {
+  segments?: FlightSegment[];
+};
+
+type FlightOffer = {
+  itineraries?: FlightItinerary[];
+};
+
+type FlightBooked = {
+  flightOffers?: FlightOffer[];
+};
+
+type Booking = {
+  status?: string;
+  FlightBooked?: FlightBooked;
+};
+
 const BOOKINGS_ENDPOINT = "/api/v1/flights/bookings";
 
-function parseDate(value) {
+function parseDate(value: string | number | Date | null | undefined) {
   if (!value) return null;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function getTripBounds(flightBooked) {
+function getTripBounds(flightBooked: FlightBooked | null | undefined) {
   if (!flightBooked?.flightOffers?.length) return null;
 
-  const departures = [];
-  const arrivals = [];
+  const departures: Date[] = [];
+  const arrivals: Date[] = [];
 
   flightBooked.flightOffers.forEach((offer) => {
     offer?.itineraries?.forEach((itinerary) => {
@@ -40,7 +62,7 @@ function getTripBounds(flightBooked) {
   return { tripStart, tripEnd };
 }
 
-function calculateDashboardStats(bookings, now = new Date()) {
+function calculateDashboardStats(bookings: Booking[] | null | undefined, now = new Date()) {
   const stats = {
     activeFlights: 0,
     reservations: 0,
@@ -73,9 +95,9 @@ function calculateDashboardStats(bookings, now = new Date()) {
 export default function DashboardSummaryCards() {
   const router = useRouter();
   const { authFetch } = useAuth();
-  const [bookings, setBookings] = useState([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const isMountedRef = useRef(false);
 
   const fetchData = useCallback(async () => {
