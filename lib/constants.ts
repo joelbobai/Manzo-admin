@@ -1,1 +1,1 @@
-export const BASE_URL = "http://localhost:3800";
+export const BASE_URL = "https://manzo-admin-be.onrender.com";
