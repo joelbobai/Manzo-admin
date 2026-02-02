@@ -20,7 +20,7 @@ export default function ForgotPasswordForm() {
     setError(null);
 
     try {
-      const response = await fetch(`${BASE_URL}/auth/forgot-password`, {
+      const response = await fetch(`${BASE_URL}/api/v1/password_reset`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
