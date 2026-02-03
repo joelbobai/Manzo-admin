@@ -90,10 +90,7 @@ export default function LoginForm() {
       </Button>
 
       <p className="text-center text-sm text-slate-500">
-        Sub-admin? {" "}
-        <Link href="/signup/sub-admin" className="font-semibold text-indigo-600 hover:text-indigo-500">
-          Sign up
-        </Link>
+        Need access? Contact the main admin to issue your credentials.
       </p>
     </form>
   );

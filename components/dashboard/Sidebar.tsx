@@ -17,6 +17,9 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { user } = useAuth();
   const roleLabel = user?.role === "main_admin" ? "Main Admin" : "Sub Admin";
+  const navigation = user?.role === "sub_admin"
+    ? NAVIGATION.filter((item) => item.href !== "/dashboard/users")
+    : NAVIGATION;
 
   return (
     <aside className="hidden h-screen w-64 flex-col border-r border-slate-100 bg-white px-6 py-8 shadow-sm lg:flex">
@@ -35,7 +38,7 @@ export default function Sidebar() {
       </div>
 
       <nav className="mt-10 flex flex-1 flex-col gap-2">
-        {NAVIGATION.map((item) => {
+        {navigation.map((item) => {
           const isActive = pathname === item.href;
           return (
             <Link

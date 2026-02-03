@@ -64,7 +64,8 @@ function normalizeSubAdmin(payload: ApiSubAdmin): SubAdmin | null {
 }
 
 export default function SubAdminsPage() {
-  const { authFetch, hydrated } = useAuth();
+  const { authFetch, hydrated, user } = useAuth();
+  const isMainAdmin = user?.role === "main_admin";
   const [subAdmins, setSubAdmins] = useState<SubAdmin[]>([]);
   const [searchId, setSearchId] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -72,6 +73,18 @@ export default function SubAdminsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [updating, setUpdating] = useState<Record<string, boolean>>({});
+  const [createFullName, setCreateFullName] = useState("");
+  const [createEmail, setCreateEmail] = useState("");
+  const [createPassword, setCreatePassword] = useState("");
+  const [createPermissions, setCreatePermissions] = useState<Record<PermissionKey, boolean>>({
+    canIssueTickets: false,
+    canReserveTickets: false,
+    canRetrieveTickets: false,
+    canCancelTickets: false,
+  });
+  const [createStatus, setCreateStatus] = useState<"idle" | "success" | "error">("idle");
+  const [createMessage, setCreateMessage] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
 
   const searchResult = useMemo(() => {
     if (!searchId) return null;
@@ -121,6 +134,49 @@ export default function SubAdminsPage() {
   useEffect(() => {
     fetchSubAdmins();
   }, [fetchSubAdmins]);
+
+  const createSubAdmin = async () => {
+    setCreateStatus("idle");
+    setCreateMessage(null);
+    setCreating(true);
+
+    try {
+      const response = await authFetch("/api/v1/user/subadmins", {
+        method: "POST",
+        body: JSON.stringify({
+          fullName: createFullName,
+          email: createEmail,
+          password: createPassword,
+          isActive: true,
+          ...createPermissions,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(await getResponseErrorMessage(response));
+      }
+
+      const payload = await parseJSON<ApiSubAdmin>(response);
+      applyRemoteSubAdmin(payload);
+      setCreateStatus("success");
+      setCreateMessage("Sub-admin account created.");
+      setCreateFullName("");
+      setCreateEmail("");
+      setCreatePassword("");
+      setCreatePermissions({
+        canIssueTickets: false,
+        canReserveTickets: false,
+        canRetrieveTickets: false,
+        canCancelTickets: false,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to create the sub-admin.";
+      setCreateStatus("error");
+      setCreateMessage(message);
+    } finally {
+      setCreating(false);
+    }
+  };
 
   const updateStatus = async (adminId: string, isActive: boolean) => {
     setUpdating((previous) => ({ ...previous, [adminId]: true }));
@@ -178,6 +234,26 @@ export default function SubAdminsPage() {
     }
   };
 
+  const resetPassword = async (adminId: string) => {
+    setUpdating((previous) => ({ ...previous, [adminId]: true }));
+    setError(null);
+
+    try {
+      const response = await authFetch(`/api/v1/user/subadmins/${adminId}/reset-password`, {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        throw new Error(await getResponseErrorMessage(response));
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to reset the sub-admin password.";
+      setError(message);
+    } finally {
+      setUpdating((previous) => ({ ...previous, [adminId]: false }));
+    }
+  };
+
   return (
     <div className="space-y-6">
       <header className="rounded-3xl bg-white p-6 shadow-sm">
@@ -212,6 +288,106 @@ export default function SubAdminsPage() {
         </form>
       </header>
 
+      {isMainAdmin ? (
+        <section className="rounded-3xl bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-600">User management</p>
+              <h2 className="text-xl font-semibold text-slate-900">Create a sub-admin</h2>
+              <p className="text-sm text-slate-500">
+                Issue credentials and assign permissions for new sub-admins.
+              </p>
+            </div>
+          </div>
+          <form
+            className="mt-6 grid gap-4 md:grid-cols-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              createSubAdmin();
+            }}
+          >
+            <div className="space-y-2">
+              <label htmlFor="createFullName" className="text-sm font-medium text-slate-700">
+                Full name
+              </label>
+              <Input
+                id="createFullName"
+                value={createFullName}
+                onChange={(event) => setCreateFullName(event.target.value)}
+                placeholder="Amina Sule"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="createEmail" className="text-sm font-medium text-slate-700">
+                Work email
+              </label>
+              <Input
+                id="createEmail"
+                type="email"
+                value={createEmail}
+                onChange={(event) => setCreateEmail(event.target.value)}
+                placeholder="you@example.com"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="createPassword" className="text-sm font-medium text-slate-700">
+                Temporary password
+              </label>
+              <Input
+                id="createPassword"
+                type="password"
+                value={createPassword}
+                onChange={(event) => setCreatePassword(event.target.value)}
+                placeholder="Set a temporary password"
+                minLength={8}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-slate-700">Permissions</p>
+              <div className="grid gap-2 rounded-2xl border border-slate-100 bg-slate-50 p-3 text-sm">
+                {(["canIssueTickets", "canReserveTickets", "canRetrieveTickets", "canCancelTickets"] as const).map(
+                  (permission) => (
+                    <label key={permission} className="flex items-center justify-between text-slate-600">
+                      <span>
+                        {permission === "canIssueTickets" && "Issue tickets"}
+                        {permission === "canReserveTickets" && "Reserve tickets"}
+                        {permission === "canRetrieveTickets" && "Retrieve tickets"}
+                        {permission === "canCancelTickets" && "Cancel tickets"}
+                      </span>
+                      <Switch
+                        checked={createPermissions[permission]}
+                        onCheckedChange={(checked) =>
+                          setCreatePermissions((previous) => ({ ...previous, [permission]: checked }))
+                        }
+                        aria-label={`Allow sub-admin to ${permission.replace("can", "").toLowerCase()}`}
+                      />
+                    </label>
+                  ),
+                )}
+              </div>
+            </div>
+            <div className="md:col-span-2">
+              {createMessage ? (
+                <p
+                  className={`text-sm ${createStatus === "success" ? "text-emerald-600" : "text-rose-600"}`}
+                  role={createStatus === "error" ? "alert" : "status"}
+                >
+                  {createMessage}
+                </p>
+              ) : null}
+            </div>
+            <div className="md:col-span-2">
+              <Button type="submit" disabled={creating} className="w-full md:w-auto">
+                {creating ? "Creating account…" : "Create sub-admin"}
+              </Button>
+            </div>
+          </form>
+        </section>
+      ) : null}
+
       <section className="rounded-3xl bg-white p-6 shadow-sm">
         <div className="overflow-x-auto">
           <table className="min-w-full table-fixed divide-y divide-slate-200">
@@ -224,12 +400,13 @@ export default function SubAdminsPage() {
                 <th className="pb-3 pr-4">Reserve Tickets</th>
                 <th className="pb-3 pr-4">Retrieve Tickets</th>
                 <th className="pb-3 pr-4">Cancel Tickets</th>
+                {isMainAdmin ? <th className="pb-3 pr-4">Reset Password</th> : null}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
               {loading ? (
                 <tr>
-                  <td className="py-6 text-center text-sm text-slate-500" colSpan={7}>
+                  <td className="py-6 text-center text-sm text-slate-500" colSpan={isMainAdmin ? 8 : 7}>
                     Loading sub-admins…
                   </td>
                 </tr>
@@ -237,7 +414,7 @@ export default function SubAdminsPage() {
 
               {!loading && subAdmins.length === 0 ? (
                 <tr>
-                  <td className="py-6 text-center text-sm text-slate-500" colSpan={7}>
+                  <td className="py-6 text-center text-sm text-slate-500" colSpan={isMainAdmin ? 8 : 7}>
                     No sub-admins found. Try refreshing the list.
                   </td>
                 </tr>
@@ -299,6 +476,19 @@ export default function SubAdminsPage() {
                         aria-label={`Allow ${admin.name} to cancel tickets`}
                       />
                     </td>
+                    {isMainAdmin ? (
+                      <td className="py-3 pr-4">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={isBusy}
+                          onClick={() => resetPassword(admin.id)}
+                        >
+                          Reset
+                        </Button>
+                      </td>
+                    ) : null}
                   </tr>
                 );
               })}
