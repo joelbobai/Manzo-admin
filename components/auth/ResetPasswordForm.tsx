@@ -14,6 +14,7 @@ type ResetPasswordFormProps = {
 
 export default function ResetPasswordForm({ token }: ResetPasswordFormProps) {
   const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
@@ -33,12 +34,12 @@ export default function ResetPasswordForm({ token }: ResetPasswordFormProps) {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(`${BASE_URL}/auth/reset-password`, {
+      const response = await fetch(`${BASE_URL}/api/v1/password_reset/reset`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ token, password }),
+        body: JSON.stringify({ token, code, password }),
       });
 
       if (!response.ok) {
@@ -84,6 +85,21 @@ export default function ResetPasswordForm({ token }: ResetPasswordFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="space-y-2">
+        <label htmlFor="password" className="text-sm font-medium text-slate-700">
+          Enter Code
+        </label>
+        <Input
+          id="code"
+          type="password"
+          placeholder="Create a strong password"
+          autoComplete="code"
+          required
+          maxLength={4}
+          value={code}
+          onChange={(event) => setCode(event.target.value)}
+        />
+      </div>
       <div className="space-y-2">
         <label htmlFor="password" className="text-sm font-medium text-slate-700">
           New password
