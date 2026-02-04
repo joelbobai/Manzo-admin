@@ -141,14 +141,14 @@ export default function SubAdminsPage() {
     setCreating(true);
 
     try {
-      const response = await authFetch("/api/v1/user/subadmins", {
+      const response = await authFetch("/api/v1/user/subadmin/signup", {
         method: "POST",
         body: JSON.stringify({
           fullName: createFullName,
           email: createEmail,
           password: createPassword,
-          isActive: true,
-          ...createPermissions,
+          // isActive: true,
+          // ...createPermissions,
         }),
       });
 
